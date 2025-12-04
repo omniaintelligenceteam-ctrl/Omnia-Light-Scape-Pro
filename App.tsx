@@ -1,7 +1,7 @@
 function App() {
   const openApp = () => {
     // ⬅️ Replace this with your real Google AI Studio app URL
-    window.open("https://aistudio.google.com/apps/drive/1ijoBwByMGfG5_gUI6uFTN26iLl-cmEIt?showAssistant=true&showPreview=true", "_blank", "noopener");
+    window.open("https://omnia-s-lightscape-pro-985622273280.us-west1.run.app", "_blank", "noopener");
   };
 
   return (
