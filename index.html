@@ -1,67 +1,15 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <title>LightScape Pro – AI Landscape Lighting Mockups</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Omnia's LightScape Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              serif: ['"Playfair Display"', 'serif'],
-            },
-            colors: {
-              accent: '#F6B45A', // Updated to Brand Gold
-              swiss: {
-                50: '#F9F9F9',
-                100: '#F0F0F0',
-                200: '#E0E0E0',
-                300: '#C0C0C0',
-                900: '#111111',
-              }
-            },
-            letterSpacing: {
-              'swiss': '0.05em',
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      /* Custom Scrollbar for Webkit */
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #333; /* Darker thumb for dark mode feel */
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #F6B45A; /* Gold hover */
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
-  }
-}
-</script>
-</head>
+  </head>
   <body>
+    <!-- React will mount into this div -->
     <div id="root"></div>
+
+    <!-- Entry file for Vite + React -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
