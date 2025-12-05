@@ -30,7 +30,7 @@ export const COLOR_TEMPERATURES: ColorTemperature[] = [
 export const QUICK_PROMPTS = [
   {
     label: "Up Lights Only",
-    text: "Use only ground-mounted uplights to illuminate the home. Every fixture must be installed in the soil or planting beds at ground level, never on concrete, steps, porch surfaces, walls, or attached to the house in any way. Place the uplights in a clean, symmetrical layout along the front of the home, at the base of walls, columns, and key architectural features, so beams shine upward and softly wash the façade.\n\nDo not create any gutter-mounted lights, soffit lights, path lights, step lights, tree lights, or fixtures attached to the building. All artificial light in the scene must clearly come from these ground-mounted uplights only, with the rest of the property remaining naturally dark except for subtle ambient night sky."
+    text: "Use only ground-mounted uplights to illuminate the home. Every fixture must be installed in the soil or planting beds at ground level. NEVER on concrete, steps, gutters, porch surfaces, walls, or attached to the house in any way. Place the uplights in a clean, symmetrical layout along the front of the home, at the base of walls, columns, and key architectural features, so beams shine upward and softly wash the façade.\n\nRULE: do not add any gutter-mounted lights, soffit lights, path lights, step lights, tree lights, or fixtures attached to the building. All artificial light in the scene must clearly come from these ground-mounted uplights only, with the rest of the property remaining naturally dark except for subtle ambient night sky."
   },
   {
     label: "Path Lights Only",

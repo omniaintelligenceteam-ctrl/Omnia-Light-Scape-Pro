@@ -1,24 +1,34 @@
+
 import React from 'react';
-import { Layers, Image as ImageIcon, Settings as SettingsIcon, LogOut, Crown } from 'lucide-react';
 import { User, Subscription } from '../types';
 
 interface SidebarItemProps {
-  icon: React.ReactNode;
   label: string;
   isActive?: boolean;
   onClick?: () => void;
   highlight?: boolean;
+  isSpecial?: boolean;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, isActive, onClick, highlight }) => (
-  <div onClick={onClick} className="group flex flex-col items-center gap-1.5 cursor-pointer w-full relative py-6">
+const SidebarItem: React.FC<SidebarItemProps> = ({ label, isActive, onClick, highlight, isSpecial }) => (
+  <div 
+    onClick={onClick} 
+    className={`
+      group flex items-center justify-center cursor-pointer relative 
+      py-4 md:py-6 px-2 flex-1 md:flex-none md:w-full
+      ${isActive ? 'bg-white/5 md:bg-transparent' : ''}
+    `}
+  >
+    {/* Active Indicator - Left border on Desktop, Top border on Mobile */}
     {isActive && (
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-[#F6B45A] rounded-r-full shadow-[0_0_12px_rgba(246,180,90,0.6)]" />
+      <div className="absolute top-0 left-0 right-0 h-0.5 md:h-auto md:top-1/2 md:-translate-y-1/2 md:right-auto md:w-0.5 md:h-8 bg-[#F6B45A] shadow-[0_0_12px_rgba(246,180,90,0.6)]" />
     )}
-    <div className={`p-2 transition-all duration-300 transform group-hover:-translate-y-0.5 ${isActive ? 'text-[#F6B45A]' : highlight ? 'text-[#F6B45A]' : 'text-gray-600 group-hover:text-gray-300'}`}>
-      {icon}
-    </div>
-    <span className={`text-[9px] uppercase tracking-[0.2em] font-medium transition-colors ${isActive ? 'text-[#F6B45A] font-bold' : highlight ? 'text-[#F6B45A]' : 'text-gray-600 group-hover:text-gray-400'}`}>
+    
+    <span className={`
+      text-[10px] md:text-[11px] uppercase tracking-[0.15em] transition-all duration-300 text-center whitespace-nowrap
+      ${isActive ? 'text-[#F6B45A] font-bold' : highlight ? 'text-[#F6B45A] font-bold' : 'text-gray-500 hover:text-white'}
+      ${isSpecial ? 'text-[#F6B45A] font-bold border border-[#F6B45A]/30 px-3 py-1.5 rounded-full bg-[#F6B45A]/10' : ''}
+    `}>
       {label}
     </span>
   </div>
@@ -31,77 +41,132 @@ interface SidebarProps {
   subscription: Subscription | null;
   onLogout: () => void;
   onOpenPricing: () => void;
+  isColorPanelOpen: boolean;
+  onToggleColorPanel: () => void;
+  isRefinePanelOpen: boolean;
+  onToggleRefinePanel: () => void;
+  onSave: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, user, subscription, onLogout, onOpenPricing }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeView, 
+  onNavigate, 
+  user, 
+  subscription, 
+  onLogout, 
+  onOpenPricing,
+  isColorPanelOpen,
+  onToggleColorPanel,
+  isRefinePanelOpen,
+  onToggleRefinePanel,
+  onSave
+}) => {
   const isPro = subscription?.status === 'active';
 
   return (
-    <div className="w-28 h-screen bg-[#111] border-r border-gray-800 flex flex-col items-center py-10 z-20 flex-shrink-0 justify-between shadow-[4px_0_24px_-4px_rgba(0,0,0,0.5)]">
-      <div className="flex flex-col items-center w-full">
-        <div className="mb-12">
-          {/* Logo Container - Lighter on dark bg */}
-          <div className="w-10 h-10 bg-[#222] rounded-xl flex items-center justify-center shadow-2xl shadow-black/50 border border-gray-800">
-            <div className="w-2.5 h-2.5 bg-[#F6B45A] rounded-full shadow-[0_0_10px_rgba(246,180,90,0.5)]"></div>
+    <>
+      {/* Mobile Upgrade Button - Fixed Top Right */}
+      {!isPro && (
+        <button 
+            onClick={onOpenPricing}
+            className="md:hidden fixed top-5 right-4 z-[60] bg-[#F6B45A] text-[#111] text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg shadow-orange-500/20 animate-pulse"
+        >
+            Upgrade
+        </button>
+      )}
+
+      {/* Container: Fixed Bottom on Mobile, Fixed Left on Desktop */}
+      <div className="
+        fixed bottom-0 left-0 right-0 h-16 bg-[#111] border-t border-gray-800 flex flex-row items-center justify-evenly z-50
+        md:relative md:h-screen md:w-32 md:flex-col md:justify-between md:border-r md:border-t-0 md:py-8
+        shadow-[0_-4px_20px_rgba(0,0,0,0.5)] md:shadow-[4px_0_24px_-4px_rgba(0,0,0,0.5)]
+      ">
+        
+        {/* LOGO (Desktop Only) */}
+        <div className="hidden md:flex flex-col items-center mb-8">
+          <div className="w-8 h-8 bg-[#222] rounded-lg flex items-center justify-center shadow-lg border border-gray-800">
+            <div className="w-2 h-2 bg-[#F6B45A] rounded-full shadow-[0_0_8px_rgba(246,180,90,0.5)]"></div>
           </div>
         </div>
         
-        <div className="flex flex-col gap-2 w-full">
+        {/* Main Navigation Items */}
+        <div className="flex flex-row md:flex-col justify-evenly w-full md:gap-2 overflow-x-auto md:overflow-visible scrollbar-hide items-center">
+          
           <SidebarItem 
-            icon={<ImageIcon size={20} strokeWidth={1.5} />} 
             label="Mockups" 
             isActive={activeView === 'editor'} 
             onClick={() => onNavigate('editor')}
           />
           <SidebarItem 
-            icon={<Layers size={20} strokeWidth={1.5} />} 
             label="Projects" 
             isActive={activeView === 'projects'}
             onClick={() => onNavigate('projects')}
           />
+          
+          {/* Hidden on Mobile, Visible on Desktop */}
+          <div className="hidden md:block w-full">
+            <SidebarItem 
+              label="Save" 
+              onClick={onSave}
+            />
+          </div>
+
           <SidebarItem 
-            icon={<SettingsIcon size={20} strokeWidth={1.5} />} 
+            label="Color" 
+            isActive={isColorPanelOpen}
+            onClick={onToggleColorPanel}
+          />
+           <SidebarItem 
+            label="Refine" 
+            isActive={isRefinePanelOpen}
+            onClick={onToggleRefinePanel}
+          />
+           <SidebarItem 
             label="Settings" 
             isActive={activeView === 'settings'}
             onClick={() => onNavigate('settings')}
           />
+          
+          {/* Mobile Only: Logout Button next to Settings */}
+          <div className="md:hidden">
+            {user && (
+               <SidebarItem 
+                label="Logout" 
+                onClick={onLogout}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Footer Actions (Desktop: Upgrade/User) */}
+        <div className="hidden md:flex flex-col items-center gap-6 w-full mt-auto">
+          {!isPro && (
+            <SidebarItem 
+              label="Upgrade" 
+              onClick={onOpenPricing}
+              isSpecial={true}
+            />
+          )}
+
+          {/* Settings moved to bottom section on Desktop */}
+          <SidebarItem 
+            label="Settings" 
+            isActive={activeView === 'settings'}
+            onClick={() => onNavigate('settings')}
+          />
+
+          {user && (
+            <div className="pt-6 border-t border-gray-800 w-12 flex justify-center">
+              <button 
+                onClick={onLogout}
+                className="text-[10px] font-medium text-gray-600 hover:text-red-400 uppercase tracking-widest transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
-      <div className="flex flex-col items-center gap-8 mb-4 w-full">
-        {!isPro && (
-          <button 
-            onClick={onOpenPricing}
-            className="flex flex-col items-center gap-2 group relative px-4"
-          >
-             {/* Subtle Pulse Animation */}
-             <div className="absolute inset-0 bg-[#F6B45A]/5 rounded-xl animate-pulse scale-90" />
-             
-             {/* Hover State */}
-             <div className="absolute inset-0 bg-[#F6B45A]/10 rounded-xl scale-0 group-hover:scale-100 transition-transform duration-300" />
-             
-             <div className="w-8 h-8 rounded-full bg-[#F6B45A]/10 flex items-center justify-center text-[#F6B45A] group-hover:bg-[#F6B45A] group-hover:text-black transition-all duration-300 shadow-sm relative z-10 border border-[#F6B45A]/20 group-hover:shadow-[0_0_15px_rgba(246,180,90,0.4)]">
-                <Crown size={14} strokeWidth={2} />
-             </div>
-             <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-[#F6B45A] relative z-10">Upgrade</span>
-          </button>
-        )}
-
-        {user && (
-          <div className="flex flex-col items-center gap-4 pt-6 border-t border-gray-800 w-12">
-            <div className="w-8 h-8 rounded-full bg-[#222] shadow-md shadow-black/50 flex items-center justify-center text-xs font-bold text-gray-400 border border-gray-700">
-              {user.name.charAt(0)}
-            </div>
-            <button 
-              onClick={onLogout}
-              className="text-gray-600 hover:text-white transition-colors"
-              title="Sign Out"
-            >
-              <LogOut size={16} strokeWidth={1.5} />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 };

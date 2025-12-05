@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toggle } from './components/Toggle';
@@ -9,7 +10,7 @@ import { Paywall } from './components/Paywall';
 import { SettingsPage } from './components/SettingsPage';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS } from './constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings } from './types';
-import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote } from 'lucide-react';
+import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
 import { checkApiKey, generateLightingMockup, openApiKeySelection } from './services/geminiService';
 import { createCheckoutSession, createPortalSession } from './services/stripeService';
 
@@ -53,7 +54,13 @@ const App: React.FC = () => {
   const [currentCritiqueInput, setCurrentCritiqueInput] = useState("");
   const [selectedFeedbackOptions, setSelectedFeedbackOptions] = useState<string[]>([]);
 
+  // UI State for Panels
+  const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
+  const [isRefinePanelOpen, setIsRefinePanelOpen] = useState(false);
+  const [isQuickPromptsOpen, setIsQuickPromptsOpen] = useState(false);
+
   const inputImageContainerRef = useRef<HTMLDivElement>(null);
+  const resultImageContainerRef = useRef<HTMLDivElement>(null);
 
   const [settings, setSettings] = useState<AppSettings>({
     darkSkyMode: true,
@@ -253,7 +260,10 @@ const App: React.FC = () => {
   };
 
   const handleSaveProject = () => {
-    if (!user || !uploadedImage || !generatedImage) return;
+    if (!user || !uploadedImage || !generatedImage) {
+        if (!generatedImage) alert("Generate a design first before saving.");
+        return;
+    }
     const newProject: Project = {
       id: Date.now().toString(),
       userId: user.id,
@@ -325,14 +335,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!uploadedImage || !inputImageContainerRef.current) return;
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
+    if (!uploadedImage || !ref.current) return;
     if (aimingMarkerId) {
       setAimingMarkerId(null);
       return;
     }
     if (activeTool === 'none') return;
-    const rect = inputImageContainerRef.current.getBoundingClientRect();
+    const rect = ref.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     let defaultAngle = 270;
@@ -349,9 +359,9 @@ const App: React.FC = () => {
     setAimingMarkerId(newMarker.id);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!aimingMarkerId || !inputImageContainerRef.current) return;
-    const rect = inputImageContainerRef.current.getBoundingClientRect();
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
+    if (!aimingMarkerId || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
     const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
     setMarkers(prevMarkers => prevMarkers.map(m => {
@@ -470,7 +480,9 @@ const App: React.FC = () => {
     setFeedbackStatus('none');
     setCurrentCritiqueInput("");
     setSelectedFeedbackOptions([]);
-    if (combinedCritique.length > 0) {
+    
+    // Trigger if there is feedback OR if there are markers (implies manual adjustments made)
+    if (combinedCritique.length > 0 || markers.length > 0) {
       runGeneration(markers.length > 0 ? 'manual' : 'auto', combinedCritique);
     }
   };
@@ -523,6 +535,67 @@ const App: React.FC = () => {
     setGeneratedImage(null);
   };
 
+  const handleQuickPromptClick = (text: string) => {
+      setUserInstructions(text);
+      setIsQuickPromptsOpen(false);
+  };
+
+  // Helper to render SVG overlays (Shared between Input and Result views)
+  const renderOverlay = () => (
+    <>
+      <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+        <defs>
+            <marker id="arrowhead-up" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+            <polygon points="0 0, 6 2, 0 4" fill="#EF4444" />
+            </marker>
+            <marker id="arrowhead-path" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+            <polygon points="0 0, 6 2, 0 4" fill="#3B82F6" />
+            </marker>
+            <marker id="arrowhead-gutter" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+            <polygon points="0 0, 6 2, 0 4" fill="#F97316" />
+            </marker>
+            {markers.map(m => (
+                <linearGradient key={`grad-${m.id}`} id={`grad-${m.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={getVectorColor(m.type)} stopOpacity="0.8" />
+                    <stop offset="100%" stopColor={getVectorColor(m.type)} stopOpacity="0.8" />
+                </linearGradient>
+            ))}
+        </defs>
+        {markers.map(m => (
+            <g key={`vector-${m.id}`} style={{ transformOrigin: `${m.x}% ${m.y}%`, transform: `rotate(${m.angle}deg)` }}>
+                <line 
+                    x1={`${m.x}%`} 
+                    y1={`${m.y}%`} 
+                    x2={`${m.x + m.throw}%`} 
+                    y2={`${m.y}%`} 
+                    stroke={getVectorColor(m.type)}
+                    strokeWidth="3" 
+                    strokeLinecap="round"
+                    markerEnd={`url(#arrowhead-${m.type})`}
+                    opacity="0.9"
+                />
+            </g>
+        ))}
+      </svg>
+
+      {/* Interactive Markers */}
+      {markers.map((m) => (
+        <div 
+            key={m.id}
+            className={`absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center transition-transform cursor-pointer z-20 ${aimingMarkerId === m.id ? 'scale-110' : 'hover:scale-110'}`}
+            style={{ left: `${m.x}%`, top: `${m.y}%` }}
+            onClick={(e) => handleMarkerLeftClick(e, m.id)}
+            onContextMenu={(e) => handleMarkerRightClick(e, m.id)}
+        >
+            <div className={`w-3.5 h-3.5 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.9)] ring-2 ring-white ${getMarkerColor(m.type)}`} />
+            {aimingMarkerId === m.id && (
+                <div className={`absolute w-full h-full rounded-full opacity-20 animate-ping ${getMarkerColor(m.type)}`} />
+            )}
+        </div>
+      ))}
+    </>
+  );
+
   if (!user) return <div className="h-screen w-full bg-[#FDFCFB] flex items-center justify-center"><Loader2 className="animate-spin text-gray-300" /></div>;
 
   if (!apiKeyReady) {
@@ -551,7 +624,8 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#FDFCFB] text-[#111] font-sans relative selection:bg-[#F6B45A] selection:text-white">
+    // Changed layout direction to column on mobile to support bottom navbar, row on desktop
+    <div className="flex flex-col-reverse md:flex-row h-screen w-full overflow-hidden bg-[#FDFCFB] text-[#111] font-sans relative selection:bg-[#F6B45A] selection:text-white pb-16 md:pb-0">
       <Paywall 
         isOpen={showPaywall} 
         onSubscribe={handleSubscribe} 
@@ -566,7 +640,82 @@ const App: React.FC = () => {
         subscription={subscription}
         onLogout={handleLogout} 
         onOpenPricing={() => setShowPricing(true)}
+        isColorPanelOpen={isColorPanelOpen}
+        onToggleColorPanel={() => setIsColorPanelOpen(!isColorPanelOpen)}
+        isRefinePanelOpen={isRefinePanelOpen}
+        onToggleRefinePanel={() => setIsRefinePanelOpen(!isRefinePanelOpen)}
+        onSave={handleSaveProject}
       />
+
+      {/* FLYOUT PANELS (Rendered outside Sidebar for positioning relative to it) */}
+      
+      {/* COLOR FLYOUT */}
+      {isColorPanelOpen && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setIsColorPanelOpen(false)} />
+          <div className="absolute left-0 bottom-16 w-full md:left-32 md:bottom-0 md:top-0 md:w-80 bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] md:shadow-[20px_0_40px_rgba(0,0,0,0.5)] z-30 animate-in slide-in-from-bottom-4 md:slide-in-from-left-4 duration-300 p-8 overflow-y-auto rounded-t-2xl md:rounded-none">
+             <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em]">Color Temperature</h3>
+                <button onClick={() => setIsColorPanelOpen(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+             </div>
+             <div className="space-y-3">
+                {COLOR_TEMPERATURES.map((temp) => (
+                    <button
+                        key={temp.id}
+                        onClick={() => setSelectedTemp(temp)}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group ${
+                            selectedTemp.id === temp.id
+                                ? 'bg-gray-800 border-[#F6B45A] shadow-[0_0_20px_rgba(246,180,90,0.1)] translate-x-1'
+                                : 'bg-[#1a1a1a] border-gray-800 hover:border-gray-600 hover:bg-gray-800/50'
+                        }`}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div 
+                                className="w-8 h-8 rounded-full shadow-inner border border-white/10"
+                                style={{ backgroundColor: temp.color, boxShadow: `0 0 15px ${temp.color}40` }}
+                            />
+                            <div className="flex flex-col items-start">
+                                <span className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                                    {temp.kelvin}
+                                </span>
+                                <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">{temp.description}</span>
+                            </div>
+                        </div>
+                        {selectedTemp.id === temp.id && (
+                            <div className="w-2 h-2 rounded-full bg-[#F6B45A] shadow-[0_0_8px_rgba(246,180,90,0.8)] animate-pulse"></div>
+                        )}
+                    </button>
+                ))}
+             </div>
+          </div>
+          {/* Overlay to dim main content */}
+          <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[1px] pointer-events-none" />
+        </>
+      )}
+
+      {/* REFINE FLYOUT */}
+      {isRefinePanelOpen && (
+        <>
+           <div className="fixed inset-0 z-20" onClick={() => setIsRefinePanelOpen(false)} />
+           <div className="absolute left-0 bottom-16 w-full md:left-32 md:bottom-0 md:top-0 md:w-80 bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] md:shadow-[20px_0_40px_rgba(0,0,0,0.5)] z-30 animate-in slide-in-from-bottom-4 md:slide-in-from-left-4 duration-300 p-8 overflow-y-auto rounded-t-2xl md:rounded-none">
+             <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em]">Fine Tuning</h3>
+                <button onClick={() => setIsRefinePanelOpen(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+             </div>
+             <div className="space-y-6 bg-[#1a1a1a] p-6 rounded-2xl border border-gray-800">
+                <Slider label="Ambient Light" value={settings.ambientLight} onChange={(v) => setSettings({...settings, ambientLight: v})} />
+                <div className="h-px bg-gray-800/50" />
+                <Slider label="Fixture Brightness" value={settings.intensity} onChange={(v) => setSettings({...settings, intensity: v})} />
+                <div className="h-px bg-gray-800/50" />
+                <Slider label="Texture Details" value={settings.textureRealism} onChange={(v) => setSettings({...settings, textureRealism: v})} />
+                <div className="h-px bg-gray-800/50" />
+                <Slider label="Shadow Contrast" value={settings.shadowContrast} onChange={(v) => setSettings({...settings, shadowContrast: v})} />
+            </div>
+           </div>
+           {/* Overlay to dim main content */}
+          <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[1px] pointer-events-none" />
+        </>
+      )}
 
       <Pricing 
         isOpen={showPricing} 
@@ -592,20 +741,20 @@ const App: React.FC = () => {
       ) : (
         <>
           {/* Main Workspace */}
-          <main className="flex-1 flex flex-col relative overflow-hidden h-screen">
+          <main className="flex-1 flex flex-col relative overflow-hidden h-full">
             {/* Header */}
-            <header className="px-12 py-6 flex-shrink-0 flex justify-between items-end bg-[#111] shadow-2xl z-30">
-              <div>
-                <h1 className="text-4xl font-serif font-black tracking-tight mb-2 text-white"><span className="text-[#F6B45A]">Omnia's</span> Light Scape PRO</h1>
-                <h2 className="text-xs text-gray-400 font-medium tracking-widest uppercase ml-1">DAYTIME PHOTO TO LIGHTING MOCK UP IN SECONDS!!!</h2>
+            <header className="px-4 md:px-8 py-4 md:py-4 flex-shrink-0 flex justify-center md:justify-between items-center md:items-end bg-[#111] shadow-2xl z-30 w-full relative">
+              <div className="text-left w-full flex justify-between md:block">
+                <h1 className="text-2xl md:text-3xl font-serif font-black tracking-tight text-white leading-none md:leading-normal"><span className="text-[#F6B45A]">Omnia's</span> Light Scape PRO</h1>
+                <h2 className="hidden md:block text-[8px] md:text-[10px] text-gray-400 font-medium tracking-widest uppercase ml-1">DAYTIME PHOTO TO LIGHTING MOCK UP IN SECONDS!!!</h2>
               </div>
             </header>
 
-            {/* Content + Sidebar Container */}
-            <div className="flex-1 flex overflow-hidden flex-row">
+            {/* Content Container (Full Width) */}
+            <div className="flex-1 flex overflow-hidden h-full relative">
                 
-                {/* Scrollable Content Area */}
-                <div className="flex-1 px-12 pb-12 pt-8 overflow-y-auto flex flex-col gap-8 scrollbar-hide">
+                {/* CANVAS & ACTIONS */}
+                <div className="w-full h-full overflow-y-auto px-4 md:px-8 pb-12 pt-6 flex flex-col gap-6 scrollbar-hide bg-[#FDFCFB]">
                 {error && (
                     <div className="bg-red-50/50 backdrop-blur-sm text-red-600 px-6 py-4 rounded-2xl flex items-center gap-3 text-sm border border-red-100 mb-2 shadow-sm">
                         <AlertCircle size={18} />
@@ -617,7 +766,7 @@ const App: React.FC = () => {
                 {/* STAGE 1: UPLOAD */}
                 {!uploadedImage && (
                     <div 
-                    className="flex-1 rounded-[32px] border-2 border-dashed border-gray-200/60 bg-white/40 hover:bg-white hover:border-[#F6B45A]/50 transition-all duration-500 flex flex-col items-center justify-center cursor-pointer min-h-[500px] group shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_40px_-10px_rgba(246,180,90,0.1)] relative overflow-hidden"
+                    className="flex-1 rounded-[32px] border-2 border-dashed border-gray-200/60 bg-white/40 hover:bg-white hover:border-[#F6B45A]/50 transition-all duration-500 flex flex-col items-center justify-center cursor-pointer min-h-[500px] group shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_40px_-10px_rgba(246,180,90,0.1)] relative overflow-hidden max-w-2xl mx-auto w-full"
                     onClick={() => fileInputRef.current?.click()}
                     >
                     <div className="absolute inset-0 bg-gradient-to-tr from-gray-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -627,7 +776,7 @@ const App: React.FC = () => {
                         <Upload size={32} strokeWidth={1.5} />
                         </div>
                         <h3 className="text-3xl font-bold text-[#111] mb-3 tracking-tight">Upload House Photo</h3>
-                        <p className="text-sm text-gray-400 font-medium tracking-wide mb-8">Drag & Drop or Click to Browse High-Res Image</p>
+                        <p className="text-sm text-gray-400 font-medium tracking-wide mb-8 text-center px-4">Drag & Drop or Click to Browse High-Res Image</p>
                         <div className="flex gap-2">
                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-widest">JPG</span>
                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-widest">PNG</span>
@@ -635,7 +784,7 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-10 text-[10px] text-gray-300 font-medium tracking-wide">
+                    <div className="absolute bottom-10 text-[10px] text-gray-300 font-medium tracking-wide text-center px-4">
                         Pro tip: High-resolution daytime photos produce the most realistic lighting.
                     </div>
 
@@ -645,83 +794,32 @@ const App: React.FC = () => {
 
                 {/* STAGE 2: DESIGN */}
                 {uploadedImage && !generatedImage && (
-                    <div className="flex flex-col gap-8 animate-in slide-in-from-bottom-8 fade-in duration-700">
+                    <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 h-full">
                     
-                    {/* Cinematic Canvas - Constrained Width */}
-                    <div className="w-full max-w-4xl mx-auto relative rounded-[32px] overflow-hidden bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-white/80 group ring-1 ring-black/5">
+                    {/* Cinematic Canvas - Full Width of Column */}
+                    <div className="w-full relative rounded-[32px] overflow-hidden bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-white/80 group ring-1 ring-black/5 max-w-4xl mx-auto">
                         <div 
                             className="relative w-full cursor-crosshair" 
                             ref={inputImageContainerRef} 
-                            onClick={handleImageClick}
-                            onMouseMove={handleMouseMove}
+                            onClick={(e) => handleImageClick(e, inputImageContainerRef)}
+                            onMouseMove={(e) => handleMouseMove(e, inputImageContainerRef)}
                         >
-                            <img src={uploadedImage} alt="Input" className="w-full h-auto block select-none" />
-                            
-                            {/* Overlay Vectors with Arrows */}
-                            <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
-                            <defs>
-                                <marker id="arrowhead-up" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#EF4444" />
-                                </marker>
-                                <marker id="arrowhead-path" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#3B82F6" />
-                                </marker>
-                                <marker id="arrowhead-gutter" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#F97316" />
-                                </marker>
-                                {markers.map(m => (
-                                    <linearGradient key={`grad-${m.id}`} id={`grad-${m.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor={getVectorColor(m.type)} stopOpacity="0.8" />
-                                        <stop offset="100%" stopColor={getVectorColor(m.type)} stopOpacity="0.8" />
-                                    </linearGradient>
-                                ))}
-                            </defs>
-                            {markers.map(m => (
-                                <g key={`vector-${m.id}`} style={{ transformOrigin: `${m.x}% ${m.y}%`, transform: `rotate(${m.angle}deg)` }}>
-                                    <line 
-                                        x1={`${m.x}%`} 
-                                        y1={`${m.y}%`} 
-                                        x2={`${m.x + m.throw}%`} 
-                                        y2={`${m.y}%`} 
-                                        stroke={getVectorColor(m.type)}
-                                        strokeWidth="3" 
-                                        strokeLinecap="round"
-                                        markerEnd={`url(#arrowhead-${m.type})`}
-                                        opacity="0.9"
-                                    />
-                                </g>
-                            ))}
-                            </svg>
-
-                            {/* Interactive Markers */}
-                            {markers.map((m) => (
-                            <div 
-                                key={m.id}
-                                className={`absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center transition-transform cursor-pointer z-20 ${aimingMarkerId === m.id ? 'scale-110' : 'hover:scale-110'}`}
-                                style={{ left: `${m.x}%`, top: `${m.y}%` }}
-                                onClick={(e) => handleMarkerLeftClick(e, m.id)}
-                                onContextMenu={(e) => handleMarkerRightClick(e, m.id)}
-                            >
-                                <div className={`w-3.5 h-3.5 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.9)] ring-2 ring-white ${getMarkerColor(m.type)}`} />
-                                {aimingMarkerId === m.id && (
-                                    <div className={`absolute w-full h-full rounded-full opacity-20 animate-ping ${getMarkerColor(m.type)}`} />
-                                )}
-                            </div>
-                            ))}
+                            <img src={uploadedImage} alt="Input" className="max-w-full w-auto h-auto max-h-[50vh] md:max-h-[70vh] block select-none object-contain mx-auto" />
+                            {renderOverlay()}
                         </div>
 
                         {/* Canvas HUD */}
-                        <div className="absolute top-8 left-8 right-8 flex justify-between items-center pointer-events-none">
-                            <div className="bg-black/80 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto flex items-center gap-3">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
-                                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-white">Design Mode</span>
+                        <div className="absolute top-3 left-3 right-3 md:top-6 md:left-6 md:right-6 flex justify-between items-center pointer-events-none">
+                            <div className="bg-black/80 backdrop-blur-xl px-3 py-1.5 md:px-5 md:py-2.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto flex items-center gap-2 md:gap-3">
+                                <div className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
+                                <span className="text-[8px] md:text-[10px] font-bold tracking-[0.2em] uppercase text-white">Design Mode</span>
                             </div>
                             <button 
                                 onClick={clearCanvas}
-                                className="bg-white/90 p-3 rounded-full shadow-lg hover:bg-white text-gray-400 hover:text-red-500 transition-colors pointer-events-auto border border-gray-100 hover:scale-110 duration-200"
+                                className="bg-white/90 p-2 md:p-3 rounded-full shadow-lg hover:bg-white text-gray-400 hover:text-red-500 transition-colors pointer-events-auto border border-gray-100 hover:scale-110 duration-200"
                                 title="Reset Image"
                             >
-                                <RefreshCw size={18} strokeWidth={2} />
+                                <RefreshCw size={14} className="md:w-[18px] md:h-[18px]" strokeWidth={2} />
                             </button>
                         </div>
 
@@ -743,23 +841,23 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Design Cockpit - Streamlined */}
-                    <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
+                    <div className="w-full flex flex-col gap-6 max-w-4xl mx-auto">
                             
                             {/* Fixture Tools - Horizontal Toolbar */}
-                            <div className="flex items-center justify-between bg-[#111] p-2 rounded-2xl shadow-xl border border-gray-800">
-                                <div className="flex items-center gap-2">
+                            <div className="hidden md:flex items-center justify-between bg-[#111] p-2 rounded-2xl shadow-xl border border-gray-800">
+                                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
                                     {[
                                         { id: 'none', label: 'Select', icon: <MousePointer2 size={16} /> },
                                         { id: 'up', label: 'Up Light', icon: <ArrowUpFromLine size={16} /> },
                                         { id: 'path', label: 'Path Light', icon: <CircleDot size={16} /> },
-                                        { id: 'gutter', label: 'Gutter Mount', icon: <ChevronsUp size={16} /> },
+                                        { id: 'gutter', label: 'Gutter', icon: <ChevronsUp size={16} /> },
                                     ].map((tool) => {
                                         const isActive = activeTool === tool.id;
                                         return (
                                             <button
                                                 key={tool.id}
                                                 onClick={() => { setActiveTool(tool.id as any); setAimingMarkerId(null); }}
-                                                className={`px-5 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 ${
+                                                className={`px-4 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 flex-shrink-0 ${
                                                     isActive 
                                                         ? 'bg-gray-800 text-[#F6B45A] shadow-lg border border-[#F6B45A]/30' 
                                                         : 'text-gray-400 hover:text-white hover:bg-gray-800 border border-transparent'
@@ -775,9 +873,9 @@ const App: React.FC = () => {
                                 {markers.length > 0 && (
                                     <button 
                                         onClick={() => { setMarkers([]); setCritiques([]); }}
-                                        className="px-4 py-2 text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-wide flex items-center gap-1 transition-colors hover:bg-red-500/10 rounded-lg mr-2"
+                                        className="px-4 py-2 text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-wide flex items-center gap-1 transition-colors hover:bg-red-500/10 rounded-lg ml-2 flex-shrink-0"
                                     >
-                                        <X size={12} /> Clear All
+                                        <X size={12} /> Clear
                                     </button>
                                 )}
                             </div>
@@ -789,13 +887,25 @@ const App: React.FC = () => {
                                 <textarea
                                     value={userInstructions}
                                     onChange={(e) => setUserInstructions(e.target.value)}
-                                    placeholder="Describe specific lighting needs (e.g., 'Illuminate only the stone columns...')"
+                                    placeholder="Describe Specifics (Which Fixture, Number of fixtures, ect.)"
                                     className="w-full bg-white border border-gray-100 rounded-2xl p-6 text-sm focus:outline-none focus:ring-2 focus:ring-[#F6B45A]/20 focus:border-[#F6B45A] transition-all resize-none h-24 placeholder:text-gray-300 shadow-sm hover:shadow-md"
                                 />
                                 
-                                {/* Quick Prompt Chips - Two Rows */}
-                                <div className="flex flex-col gap-2 mt-3">
-                                    <div className="flex items-center gap-2 text-gray-400 text-[10px] font-bold uppercase tracking-wider mr-2">
+                                {/* Quick Prompt Chips */}
+                                {/* Mobile Toggle Button */}
+                                <button
+                                    onClick={() => setIsQuickPromptsOpen(!isQuickPromptsOpen)}
+                                    className="md:hidden w-full py-3 bg-gray-100 rounded-xl flex items-center justify-between px-4 text-xs font-bold text-gray-500 uppercase tracking-wide mt-3 hover:bg-gray-200 transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Quote size={12} />
+                                        Select Quick Prompt
+                                    </div>
+                                    {isQuickPromptsOpen ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                </button>
+
+                                <div className={`${isQuickPromptsOpen ? 'flex' : 'hidden'} md:flex flex-col gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200 md:animate-none`}>
+                                    <div className="hidden md:flex items-center gap-2 text-gray-400 text-[10px] font-bold uppercase tracking-wider mr-2">
                                         <Quote size={10} /> Quick Prompts:
                                     </div>
                                     {/* Row 1: Simple Options */}
@@ -803,7 +913,7 @@ const App: React.FC = () => {
                                         {QUICK_PROMPTS.slice(0, 4).map((prompt, idx) => (
                                             <button
                                                 key={idx}
-                                                onClick={() => setUserInstructions(prompt.text)}
+                                                onClick={() => handleQuickPromptClick(prompt.text)}
                                                 className="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-bold text-gray-500 hover:bg-[#F6B45A]/10 hover:text-[#F6B45A] hover:border-[#F6B45A]/30 transition-all whitespace-nowrap"
                                             >
                                                 {prompt.label}
@@ -815,7 +925,7 @@ const App: React.FC = () => {
                                         {QUICK_PROMPTS.slice(4).map((prompt, idx) => (
                                             <button
                                                 key={idx + 4}
-                                                onClick={() => setUserInstructions(prompt.text)}
+                                                onClick={() => handleQuickPromptClick(prompt.text)}
                                                 className="px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-[10px] font-bold text-gray-600 hover:bg-[#F6B45A]/10 hover:text-[#F6B45A] hover:border-[#F6B45A]/30 transition-all whitespace-nowrap"
                                             >
                                                 {prompt.label}
@@ -825,19 +935,19 @@ const App: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="flex gap-4">
+                            <div className="flex gap-2 md:gap-4">
                                 <button
                                 onClick={() => runGeneration('auto')}
                                 disabled={!uploadedImage || isGenerating}
                                 className={`
-                                    flex-1 py-5 rounded-2xl font-bold text-sm tracking-[0.15em] uppercase transition-all duration-300 flex items-center gap-3 justify-center border shadow-xl
+                                    flex-1 py-3 md:py-5 rounded-2xl font-bold text-[10px] md:text-sm tracking-[0.15em] uppercase transition-all duration-300 flex items-center gap-2 md:gap-3 justify-center border shadow-xl
                                     ${!uploadedImage || isGenerating
                                         ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed shadow-none'
                                         : 'bg-gradient-to-r from-gray-900 via-[#1a1a1a] to-gray-800 border-gray-800 text-[#F6B45A] hover:scale-[1.01] hover:shadow-2xl hover:shadow-[#F6B45A]/10'
                                     }
                                 `}
                                 >
-                                {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                                {isGenerating ? <Loader2 size={14} className="md:w-[18px] md:h-[18px] animate-spin" /> : <Sparkles size={14} className="md:w-[18px] md:h-[18px]" />}
                                 <div className="flex flex-col items-start leading-none">
                                     <span>Auto-Design</span>
                                 </div>
@@ -847,14 +957,14 @@ const App: React.FC = () => {
                                 onClick={() => runGeneration('manual')}
                                 disabled={!uploadedImage || isGenerating}
                                 className={`
-                                    flex-shrink-0 px-8 rounded-2xl font-bold text-xs tracking-[0.15em] uppercase transition-all duration-300 flex items-center gap-3 justify-center border
+                                    flex-shrink-0 px-4 md:px-8 py-3 md:py-auto rounded-2xl font-bold text-[9px] md:text-xs tracking-[0.15em] uppercase transition-all duration-300 flex items-center gap-2 md:gap-3 justify-center border
                                     ${!uploadedImage || isGenerating
                                         ? 'bg-gray-50 text-gray-300 border-transparent cursor-not-allowed'
                                         : 'bg-white text-[#111] border-gray-200 hover:border-gray-400 hover:bg-gray-50 shadow-sm hover:shadow-md'
                                     }
                                 `}
                                 >
-                                {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <PencilLine size={14} />}
+                                {isGenerating ? <Loader2 size={12} className="md:w-[14px] md:h-[14px] animate-spin" /> : <PencilLine size={12} className="md:w-[14px] md:h-[14px]" />}
                                 Manual Design
                                 </button>
                             </div>
@@ -875,22 +985,37 @@ const App: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="w-full max-w-4xl mx-auto">
+                        <div className="w-full relative">
                             {/* AFTER IMAGE ONLY */}
                             <div 
-                                className="relative rounded-[32px] overflow-hidden bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] border border-white/80 w-full group ring-1 ring-black/5 cursor-zoom-in"
-                                onClick={() => setGeneratedImage && setPreviewImage(generatedImage)}
+                                className={`relative rounded-[32px] overflow-hidden bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] border border-white/80 w-full group ring-1 ring-black/5 max-w-4xl mx-auto ${feedbackStatus === 'disliked' && activeTool !== 'none' ? 'cursor-crosshair' : 'cursor-zoom-in'}`}
+                                ref={resultImageContainerRef}
+                                onClick={(e) => {
+                                    if (feedbackStatus === 'disliked' && activeTool !== 'none') {
+                                        handleImageClick(e, resultImageContainerRef);
+                                    } else {
+                                        setGeneratedImage && setPreviewImage(generatedImage);
+                                    }
+                                }}
+                                onMouseMove={(e) => {
+                                    if (feedbackStatus === 'disliked' && activeTool !== 'none') {
+                                        handleMouseMove(e, resultImageContainerRef);
+                                    }
+                                }}
                             >
-                                <div className="absolute top-6 left-6 z-10 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-white/10 flex items-center">
-                                     <span className="font-serif font-black italic text-[#F6B45A] text-xs tracking-wide">Omnia's</span>
-                                     <span className="font-serif font-bold text-white text-xs tracking-widest uppercase ml-1">Light Scape PRO</span>
+                                <div className="absolute top-3 left-3 md:top-6 md:left-6 z-10 bg-black/80 backdrop-blur-md px-2 py-1 md:px-4 md:py-2 rounded-full shadow-lg border border-white/10 flex items-center">
+                                     <span className="font-serif font-black italic text-[#F6B45A] text-[9px] md:text-xs tracking-wide">Omnia's</span>
+                                     <span className="font-serif font-bold text-white text-[9px] md:text-xs tracking-widest uppercase ml-1">Light Scape PRO</span>
                                 </div>
-                                <div className="absolute top-6 right-6 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute top-3 right-3 md:top-6 md:right-6 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                      <span className="bg-black/50 backdrop-blur-md text-white px-2 py-2 rounded-full flex items-center justify-center border border-white/10">
                                         <Maximize2 size={16} />
                                      </span>
                                 </div>
-                                <img src={generatedImage} alt="Generated Mockup" className="w-full h-auto block" />
+                                <img src={generatedImage} alt="Generated Mockup" className="max-w-full w-auto h-auto max-h-[50vh] md:max-h-[70vh] block object-contain mx-auto" />
+                                
+                                {/* Overlay Vectors on Result Image for Corrections */}
+                                {feedbackStatus === 'disliked' && renderOverlay()}
                                 
                                 {/* Regenerating Overlay */}
                                 {isGenerating && (
@@ -919,7 +1044,35 @@ const App: React.FC = () => {
                                             
                                             <div>
                                                 <h4 className="text-lg font-bold text-[#111] mb-2">What needs fixing?</h4>
-                                                <p className="text-gray-400 text-sm">Select common issues or describe below.</p>
+                                                <p className="text-gray-400 text-sm">Select common issues or add markers to the image above.</p>
+                                            </div>
+
+                                            {/* Toolbar for Feedback Corrections */}
+                                            <div className="flex items-center justify-between bg-gray-50 p-2 rounded-2xl border border-gray-100">
+                                                <div className="flex items-center gap-2">
+                                                    {[
+                                                        { id: 'none', label: 'Select', icon: <MousePointer2 size={14} /> },
+                                                        { id: 'up', label: 'Up Light', icon: <ArrowUpFromLine size={14} /> },
+                                                        { id: 'path', label: 'Path Light', icon: <CircleDot size={14} /> },
+                                                        { id: 'gutter', label: 'Gutter', icon: <ChevronsUp size={14} /> },
+                                                    ].map((tool) => {
+                                                        const isActive = activeTool === tool.id;
+                                                        return (
+                                                            <button
+                                                                key={tool.id}
+                                                                onClick={() => { setActiveTool(tool.id as any); setAimingMarkerId(null); }}
+                                                                className={`px-3 py-2 rounded-xl flex items-center gap-2 transition-all duration-200 ${
+                                                                    isActive 
+                                                                        ? 'bg-[#111] text-[#F6B45A] shadow-md' 
+                                                                        : 'text-gray-400 hover:text-[#111] hover:bg-gray-200'
+                                                                }`}
+                                                            >
+                                                                {tool.icon}
+                                                                <span className="text-[10px] font-bold tracking-wide hidden sm:inline">{tool.label}</span>
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
 
                                             <div className="flex flex-wrap gap-2">
@@ -954,7 +1107,7 @@ const App: React.FC = () => {
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center gap-6">
-                                            <div className="bg-black/80 backdrop-blur-xl text-white px-6 py-3 rounded-full text-xs font-medium tracking-wide shadow-2xl mb-2">
+                                            <div className="bg-black/80 backdrop-blur-xl text-white px-6 py-3 rounded-full text-xs font-medium tracking-wide shadow-2xl mb-2 text-center">
                                                 Not perfect? Tap the thumbs down and explain what you want to be done and we will fix it!
                                             </div>
                                             <div className="flex items-center gap-4">
@@ -991,67 +1144,6 @@ const App: React.FC = () => {
                     </div>
                 )}
                 </div>
-                
-                {/* Right Panel - Hidden in Projects/Settings, visible in Editor */}
-                {view === 'editor' && (
-                    <aside className="w-80 bg-[#111] border-l border-gray-800 flex-shrink-0 flex flex-col overflow-y-auto z-20 shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.5)]">
-                        <div className="p-8 space-y-10">
-                            {/* Behavior Section - REMOVED AS REQUESTED but kept active in state */}
-
-                            {/* Color Temperature Section */}
-                            <section>
-                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-6 border-b border-gray-800 pb-2">Color Temperature</h3>
-                                <div className="space-y-3">
-                                    {COLOR_TEMPERATURES.map((temp) => (
-                                        <button
-                                            key={temp.id}
-                                            onClick={() => setSelectedTemp(temp)}
-                                            className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all duration-200 group ${
-                                                selectedTemp.id === temp.id
-                                                    ? 'bg-gray-800 border-[#F6B45A] shadow-[0_0_15px_rgba(246,180,90,0.1)]'
-                                                    : 'bg-[#1a1a1a] border-gray-800 hover:border-gray-600'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div 
-                                                    className="w-3 h-3 rounded-full shadow-sm"
-                                                    style={{ backgroundColor: temp.color, boxShadow: `0 0 8px ${temp.color}40` }}
-                                                />
-                                                <div className="flex flex-col items-start">
-                                                    <span className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
-                                                        {temp.kelvin}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            {selectedTemp.id === temp.id && (
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] shadow-[0_0_6px_rgba(246,180,90,0.8)]"></div>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Refinement Section */}
-                            <section>
-                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-4 border-b border-gray-800 pb-2">Refinement</h3>
-                                <Slider label="Ambient Light" value={settings.ambientLight} onChange={(v) => setSettings({...settings, ambientLight: v})} />
-                                <Slider label="Fixture Brightness" value={settings.intensity} onChange={(v) => setSettings({...settings, intensity: v})} />
-                                <Slider label="Texture Details" value={settings.textureRealism} onChange={(v) => setSettings({...settings, textureRealism: v})} />
-                                <Slider label="Shadow Contrast" value={settings.shadowContrast} onChange={(v) => setSettings({...settings, shadowContrast: v})} />
-                            </section>
-                        </div>
-
-                        <div className="mt-auto p-8 border-t border-gray-800 bg-[#111]">
-                            <button 
-                                onClick={handleSaveProject}
-                                disabled={!generatedImage}
-                                className="w-full py-4 border border-gray-700 rounded-xl text-gray-400 font-bold text-xs uppercase tracking-widest hover:text-white hover:border-gray-500 transition-all flex items-center justify-center gap-2 disabled:opacity-30 disabled:hover:border-gray-700 disabled:hover:text-gray-400"
-                            >
-                                <Save size={14} /> Save Project
-                            </button>
-                        </div>
-                    </aside>
-                )}
             </div>
           </main>
         </>
@@ -1076,6 +1168,16 @@ const App: React.FC = () => {
                 onClick={(e) => e.stopPropagation()} 
             />
         </div>
+      )}
+
+      {/* Mobile Floating Save Button (Only when generated image exists) */}
+      {generatedImage && (
+          <button
+            onClick={handleSaveProject}
+            className="md:hidden fixed bottom-20 right-4 z-40 bg-[#111] text-[#F6B45A] p-4 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-[#F6B45A]/30 active:scale-95 transition-transform"
+          >
+            <Save size={24} />
+          </button>
       )}
 
       {/* Auth Overlay */}

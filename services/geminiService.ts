@@ -155,6 +155,12 @@ export const generateLightingMockup = async (
       
       If the user says "remove X", ensure it is gone.
       If the user says "brighter", increase intensity significantly.
+      
+      INTEGRATION INSTRUCTION:
+      The user may have placed new colored marker dots on the image to specify EXACT locations for new lights.
+      INTEGRATE these new markers into the design immediately.
+      If text feedback says "add light here" and a dot is present, use the dot's location.
+      NOTE: The input image may contain NEW marker dots added by the user as part of this correction. Ensure these new markers are rendered.
       `;
     }
 
