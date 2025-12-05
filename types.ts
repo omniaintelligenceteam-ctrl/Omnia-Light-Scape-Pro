@@ -48,6 +48,7 @@ export interface UserSettings {
   default_color_temp: string; // e.g. '3000k'
   default_beam_angle: number; // e.g. 60
   default_fixture_type: MarkerType;
+  default_design_template?: string; // Label of the Quick Prompt to use by default
 }
 
 export type SubscriptionPlan = 'pro_monthly' | 'pro_yearly';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, UserSettings, Subscription, TrialState, MarkerType } from '../types';
 import { createPortalSession } from '../services/stripeService';
 import { Save, Loader2, CreditCard, Crown, Clock, Building, Lightbulb, Sparkles, ChevronDown, Mail, ShieldCheck } from 'lucide-react';
-import { COLOR_TEMPERATURES } from '../constants';
+import { COLOR_TEMPERATURES, QUICK_PROMPTS } from '../constants';
 
 interface SettingsPageProps {
   user: User;
@@ -27,7 +27,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   // Local state for form
   const [companyName, setCompanyName] = useState(userSettings?.company_name || '');
   const [defaultColorTemp, setDefaultColorTemp] = useState(userSettings?.default_color_temp || '3000k');
-  const [defaultFixtureType, setDefaultFixtureType] = useState<MarkerType>(userSettings?.default_fixture_type || 'up');
+  const [defaultDesignTemplate, setDefaultDesignTemplate] = useState(userSettings?.default_design_template || '');
 
   // Calculate Trial Status
   const now = Date.now();
@@ -52,7 +52,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       ...userSettings,
       company_name: companyName,
       default_color_temp: defaultColorTemp,
-      default_fixture_type: defaultFixtureType
+      default_design_template: defaultDesignTemplate
     };
     
     onSaveSettings(updated);
@@ -157,16 +157,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Default Fixture Tool</label>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Default Design Template</label>
                   <div className="relative group/select">
                     <select 
-                      value={defaultFixtureType}
-                      onChange={(e) => setDefaultFixtureType(e.target.value as MarkerType)}
+                      value={defaultDesignTemplate}
+                      onChange={(e) => setDefaultDesignTemplate(e.target.value)}
                       className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm font-medium text-[#111] focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] transition-all appearance-none shadow-sm cursor-pointer hover:border-gray-300"
                     >
-                      <option value="up">Up Light</option>
-                      <option value="path">Path Light</option>
-                      <option value="gutter">Gutter Mount</option>
+                      <option value="">None (Empty Notes)</option>
+                      {QUICK_PROMPTS.map(p => (
+                        <option key={p.label} value={p.label}>{p.label}</option>
+                      ))}
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover/select:text-[#111] transition-colors">
                       <ChevronDown size={16} strokeWidth={2} />
