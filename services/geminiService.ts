@@ -241,4 +241,4 @@ export const generateLightingMockup = async (
     }
     throw error;
   }
-};
+}; 
