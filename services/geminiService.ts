@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
 const MODEL_NAME = 'gemini-3-pro-image-preview';
@@ -27,7 +27,7 @@ export const generateLightingMockup = async (
   userInstructions: string = "" // Added userInstructions parameter
 ): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenerativeAI({ apiKey: process.env.API_KEY });
 
     // Ambient Light Logic
     let timeOfDay = "Pitch Black Night (0% ambient)";
