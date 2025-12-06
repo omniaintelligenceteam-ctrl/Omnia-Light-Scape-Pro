@@ -4,6 +4,8 @@ import { Toggle } from './components/Toggle';
 import { Slider } from './components/Slider';
 import { Auth } from './components/Auth';
 import { ProjectGallery } from './components/ProjectGallery';
+import { upload } from '@vercel/blob/client';
+import imageCompression from 'browser-image-compression';
 import { Pricing } from './components/Pricing';
 import { Paywall } from './components/Paywall';
 import { SettingsPage } from './components/SettingsPage';
@@ -35,6 +37,7 @@ const App: React.FC = () => {
   // App State
   const [apiKeyReady, setApiKeyReady] = useState<boolean>(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null); // State for lightbox
   const [selectedTemp, setSelectedTemp] = useState<ColorTemperature>(COLOR_TEMPERATURES[1]); 
@@ -305,38 +308,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setUploadedImage(ev.target.result as string);
-          setGeneratedImage(null);
-          setMarkers([]);
-          setError(null);
-          setCritiques([]); 
-          setFeedbackStatus('none');
-          setSelectedFeedbackOptions([]);
-          setActiveTool('up');
-          setAimingMarkerId(null);
-          
-          // Re-apply default template on new upload if set
-          if (userSettings?.default_design_template) {
-             const quickPrompt = QUICK_PROMPTS.find(p => p.label === userSettings.default_design_template);
-             if (quickPrompt) setUserInstructions(quickPrompt.text);
-          } else {
-             setUserInstructions("");
-          }
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
+  // --- FIXED: Consolidated handleImageClick ---
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
-    
+
     // Preview Logic for Generated Image in Feedback Mode
     if (ref === resultImageContainerRef && generatedImage && activeTool === 'none') {
         setPreviewImage(generatedImage);
@@ -363,6 +338,68 @@ const App: React.FC = () => {
     };
     setMarkers([...markers, newMarker]);
     setAimingMarkerId(newMarker.id);
+  };
+
+  // --- FIXED: Updated handleFileUpload with HEIC support and Vercel Blob ---
+  const handleFileUpload = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 1. RESET STATE
+    setUploadedImage(null);
+    setUploadedImageUrl(null); // Reset the cloud link
+    setGeneratedImage(null);
+    setMarkers([]);
+    setError(null);
+    setCritiques([]);
+    setFeedbackStatus('none');
+    setSelectedFeedbackOptions([]);
+    setActiveTool('up');
+    setAimingMarkerId(null);
+
+    try {
+      // 2. FIX IPHONE HEIC & RESIZE
+      const options = {
+        maxSizeMB: 2,           
+        maxWidthOrHeight: 1920, 
+        useWebWorker: true,
+        fileType: "image/jpeg"
+      };
+      
+      console.log("Compressing image...");
+      const compressedFile = await imageCompression(file, options);
+
+      // 3. SET LOCAL PREVIEW
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setUploadedImage(ev.target.result as string);
+        }
+      };
+      reader.readAsDataURL(compressedFile);
+
+      // 4. UPLOAD TO VERCEL BLOB
+      console.log("Uploading to cloud...");
+      const newBlob = await upload(compressedFile.name, compressedFile, {
+        access: 'public',
+        handleUploadUrl: '/api/upload', 
+      });
+
+      setUploadedImageUrl(newBlob.url); 
+      console.log("Cloud URL ready:", newBlob.url);
+
+      // Apply template if needed
+      if (userSettings?.default_design_template) {
+        const quickPrompt = QUICK_PROMPTS.find(p => p.label === userSettings.default_design_template);
+        if (quickPrompt) setUserInstructions(quickPrompt.text);
+      } else {
+        setUserInstructions("");
+      }
+
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setError("Failed to process image. Please try again.");
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
@@ -452,10 +489,19 @@ const App: React.FC = () => {
     if (!critiqueList) setFeedbackStatus('none');
     try {
       if (!apiKeyReady) await handleKeySelection();
+      
       let imageToUse = uploadedImage;
-      // If we are in feedback mode and added markers, we need to bake them into the image
-      // But we should use the ORIGINAL uploaded image as base, not the generated one
-      if (mode === 'manual' || markers.length > 0) imageToUse = await prepareCompositeImage();
+
+      // INTELLIGENT SWITCH:
+      // 1. If we have a clean Cloud URL and NO markers, use the URL (Super fast on mobile)
+      if (uploadedImageUrl && mode === 'auto' && markers.length === 0) {
+          imageToUse = uploadedImageUrl; 
+      }
+
+      // 2. If we drew markers, we MUST use the composite image (Canvas)
+      if (mode === 'manual' || markers.length > 0) {
+          imageToUse = await prepareCompositeImage();
+      }
       
       const markersToPass = (mode === 'manual' || markers.length > 0) ? markers : [];
       
