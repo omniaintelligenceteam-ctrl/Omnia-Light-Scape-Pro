@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toggle } from './components/Toggle';
@@ -337,6 +336,13 @@ const App: React.FC = () => {
 
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
+    
+    // Preview Logic for Generated Image in Feedback Mode
+    if (ref === resultImageContainerRef && generatedImage && activeTool === 'none') {
+        setPreviewImage(generatedImage);
+        return;
+    }
+
     if (aimingMarkerId) {
       setAimingMarkerId(null);
       return;
@@ -409,7 +415,7 @@ const App: React.FC = () => {
         markers.forEach(marker => {
           const x = (marker.x / 100) * canvas.width;
           const y = (marker.y / 100) * canvas.height;
-          const radius = Math.max(5, canvas.width * 0.004); 
+          const radius = Math.max(2, canvas.width * 0.004); 
           let color = '#888';
           switch (marker.type) {
             case 'up': color = '#FF0000'; break;
@@ -447,13 +453,18 @@ const App: React.FC = () => {
     try {
       if (!apiKeyReady) await handleKeySelection();
       let imageToUse = uploadedImage;
-      if (mode === 'manual') imageToUse = await prepareCompositeImage();
-      const markersToPass = mode === 'manual' ? markers : [];
+      // If we are in feedback mode and added markers, we need to bake them into the image
+      // But we should use the ORIGINAL uploaded image as base, not the generated one
+      if (mode === 'manual' || markers.length > 0) imageToUse = await prepareCompositeImage();
+      
+      const markersToPass = (mode === 'manual' || markers.length > 0) ? markers : [];
+      
       let critiquesToSend = [...critiques];
       if (critiqueList && critiqueList.length > 0) {
         critiquesToSend = [...critiquesToSend, ...critiqueList];
         setCritiques(critiquesToSend);
       }
+      
       const result = await generateLightingMockup(imageToUse, selectedTemp, settings, markersToPass, critiquesToSend, userInstructions);
       setGeneratedImage(result);
       if (critiqueList) {
@@ -475,170 +486,56 @@ const App: React.FC = () => {
 
   const handleSubmitFeedback = () => {
     const combinedCritique: string[] = [];
-    if (selectedFeedbackOptions.length > 0) combinedCritique.push(...selectedFeedbackOptions);
-    if (currentCritiqueInput.trim()) combinedCritique.push(currentCritiqueInput.trim());
-    setFeedbackStatus('none');
-    setCurrentCritiqueInput("");
-    setSelectedFeedbackOptions([]);
-    
-    // Trigger if there is feedback OR if there are markers (implies manual adjustments made)
+    if (selectedFeedbackOptions.length > 0) {
+        combinedCritique.push(`Issues identified: ${selectedFeedbackOptions.join(', ')}.`);
+    }
+    if (currentCritiqueInput.trim()) {
+        combinedCritique.push(`User specific instruction: "${currentCritiqueInput.trim()}"`);
+    }
+
     if (combinedCritique.length > 0 || markers.length > 0) {
-      runGeneration(markers.length > 0 ? 'manual' : 'auto', combinedCritique);
+        // Trigger regeneration immediately with new feedback OR new markers
+        runGeneration('manual', combinedCritique);
     }
   };
 
-  const toggleFeedbackOption = (option: string) => {
-    if (selectedFeedbackOptions.includes(option)) {
-      setSelectedFeedbackOptions(prev => prev.filter(o => o !== option));
-    } else {
-      setSelectedFeedbackOptions(prev => [...prev, option]);
-    }
-  };
+  if (!user) {
+    return <Auth onLogin={handleLogin} />;
+  }
 
-  const handleDownload = () => {
-    if (generatedImage) {
-      const link = document.createElement('a');
-      link.href = generatedImage;
-      link.download = `omnia-mockup-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
+  // Define marker colors for UI
   const getMarkerColor = (type: MarkerType) => {
-    switch(type) {
-      case 'up': return 'bg-red-500 shadow-red-500/50';
-      case 'path': return 'bg-blue-500 shadow-blue-500/50';
-      case 'gutter': return 'bg-orange-500 shadow-orange-500/50';
-      default: return 'bg-gray-500';
+    switch (type) {
+        case 'up': return '#FF0000';
+        case 'path': return '#0000FF';
+        case 'gutter': return '#FFA500';
     }
   };
-  
-  const getVectorColor = (type: MarkerType) => {
-    switch(type) {
-        case 'up': return '#EF4444'; // Red-500
-        case 'path': return '#3B82F6'; // Blue-500
-        case 'gutter': return '#F97316'; // Orange-500
-        default: return '#9CA3AF';
-    }
-  };
-
-  const clearCanvas = () => {
-     setUploadedImage(null); 
-     setGeneratedImage(null); 
-     setMarkers([]); 
-     setCritiques([]); 
-  }
-
-  const handleBackToDesign = () => {
-    setGeneratedImage(null);
-  };
-
-  const handleQuickPromptClick = (text: string) => {
-      setUserInstructions(text);
-      setIsQuickPromptsOpen(false);
-  };
-
-  // Helper to render SVG overlays (Shared between Input and Result views)
-  const renderOverlay = () => (
-    <>
-      <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
-        <defs>
-            <marker id="arrowhead-up" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-            <polygon points="0 0, 6 2, 0 4" fill="#EF4444" />
-            </marker>
-            <marker id="arrowhead-path" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-            <polygon points="0 0, 6 2, 0 4" fill="#3B82F6" />
-            </marker>
-            <marker id="arrowhead-gutter" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-            <polygon points="0 0, 6 2, 0 4" fill="#F97316" />
-            </marker>
-            {markers.map(m => (
-                <linearGradient key={`grad-${m.id}`} id={`grad-${m.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={getVectorColor(m.type)} stopOpacity="0.8" />
-                    <stop offset="100%" stopColor={getVectorColor(m.type)} stopOpacity="0.8" />
-                </linearGradient>
-            ))}
-        </defs>
-        {markers.map(m => (
-            <g key={`vector-${m.id}`} style={{ transformOrigin: `${m.x}% ${m.y}%`, transform: `rotate(${m.angle}deg)` }}>
-                <line 
-                    x1={`${m.x}%`} 
-                    y1={`${m.y}%`} 
-                    x2={`${m.x + m.throw}%`} 
-                    y2={`${m.y}%`} 
-                    stroke={getVectorColor(m.type)}
-                    strokeWidth="3" 
-                    strokeLinecap="round"
-                    markerEnd={`url(#arrowhead-${m.type})`}
-                    opacity="0.9"
-                />
-            </g>
-        ))}
-      </svg>
-
-      {/* Interactive Markers */}
-      {markers.map((m) => (
-        <div 
-            key={m.id}
-            className={`absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center transition-transform cursor-pointer z-20 ${aimingMarkerId === m.id ? 'scale-110' : 'hover:scale-110'}`}
-            style={{ left: `${m.x}%`, top: `${m.y}%` }}
-            onClick={(e) => handleMarkerLeftClick(e, m.id)}
-            onContextMenu={(e) => handleMarkerRightClick(e, m.id)}
-        >
-            <div className={`w-3.5 h-3.5 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.9)] ring-2 ring-white ${getMarkerColor(m.type)}`} />
-            {aimingMarkerId === m.id && (
-                <div className={`absolute w-full h-full rounded-full opacity-20 animate-ping ${getMarkerColor(m.type)}`} />
-            )}
-        </div>
-      ))}
-    </>
-  );
-
-  if (!user) return <div className="h-screen w-full bg-[#FDFCFB] flex items-center justify-center"><Loader2 className="animate-spin text-gray-300" /></div>;
-
-  if (!apiKeyReady) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#FDFCFB] font-sans text-[#111]">
-        <div className="text-center space-y-8 max-w-md px-6">
-          <div className="w-20 h-20 bg-[#111] rounded-2xl flex items-center justify-center mx-auto shadow-2xl mb-8">
-            <div className="w-5 h-5 bg-white rounded-full" />
-          </div>
-          <h1 className="text-3xl font-serif font-black tracking-tight uppercase">Omnia's Light Scape Pro</h1>
-          <p className="text-gray-400 font-light leading-relaxed">
-            Premium outdoor lighting visualization powered by Gemini 3 Pro. 
-            To continue, please connect your Google Cloud Project billing.
-          </p>
-          <div className="pt-4">
-             <button 
-              onClick={handleKeySelection}
-              className="bg-[#111] text-white px-8 py-4 rounded-full font-medium hover:scale-105 transition-transform flex items-center gap-2 mx-auto shadow-xl shadow-black/20"
-            >
-              Connect API Key <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    // Changed layout direction to column on mobile to support bottom navbar, row on desktop
-    <div className="flex flex-col-reverse md:flex-row h-screen w-full overflow-hidden bg-[#FDFCFB] text-[#111] font-sans relative selection:bg-[#F6B45A] selection:text-white pb-16 md:pb-0">
-      <Paywall 
-        isOpen={showPaywall} 
-        onSubscribe={handleSubscribe} 
-        onManageBilling={handleManageBilling}
-        userSubscriptionStatus={subscription?.status || 'none'}
-      />
+    <div className="flex flex-col md:flex-row h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans">
+      
+      {/* SVG Definitions for Arrows */}
+      <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+        <defs>
+          <marker id="arrowhead-up" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#FF0000" />
+          </marker>
+          <marker id="arrowhead-path" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#0000FF" />
+          </marker>
+          <marker id="arrowhead-gutter" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#FFA500" />
+          </marker>
+        </defs>
+      </svg>
 
       <Sidebar 
         activeView={view} 
         onNavigate={setView} 
         user={user} 
         subscription={subscription}
-        onLogout={handleLogout} 
+        onLogout={handleLogout}
         onOpenPricing={() => setShowPricing(true)}
         isColorPanelOpen={isColorPanelOpen}
         onToggleColorPanel={() => setIsColorPanelOpen(!isColorPanelOpen)}
@@ -646,546 +543,672 @@ const App: React.FC = () => {
         onToggleRefinePanel={() => setIsRefinePanelOpen(!isRefinePanelOpen)}
         onSave={handleSaveProject}
       />
-
-      {/* FLYOUT PANELS (Rendered outside Sidebar for positioning relative to it) */}
       
-      {/* COLOR FLYOUT */}
-      {isColorPanelOpen && (
-        <>
-          <div className="fixed inset-0 z-20" onClick={() => setIsColorPanelOpen(false)} />
-          <div className="absolute left-0 bottom-16 w-full md:left-32 md:bottom-0 md:top-0 md:w-80 bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] md:shadow-[20px_0_40px_rgba(0,0,0,0.5)] z-30 animate-in slide-in-from-bottom-4 md:slide-in-from-left-4 duration-300 p-8 overflow-y-auto rounded-t-2xl md:rounded-none">
-             <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em]">Color Temperature</h3>
-                <button onClick={() => setIsColorPanelOpen(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
-             </div>
-             <div className="space-y-3">
-                {COLOR_TEMPERATURES.map((temp) => (
-                    <button
-                        key={temp.id}
-                        onClick={() => setSelectedTemp(temp)}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group ${
-                            selectedTemp.id === temp.id
-                                ? 'bg-gray-800 border-[#F6B45A] shadow-[0_0_20px_rgba(246,180,90,0.1)] translate-x-1'
-                                : 'bg-[#1a1a1a] border-gray-800 hover:border-gray-600 hover:bg-gray-800/50'
-                        }`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div 
-                                className="w-8 h-8 rounded-full shadow-inner border border-white/10"
-                                style={{ backgroundColor: temp.color, boxShadow: `0 0 15px ${temp.color}40` }}
-                            />
-                            <div className="flex flex-col items-start">
-                                <span className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
-                                    {temp.kelvin}
-                                </span>
-                                <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">{temp.description}</span>
-                            </div>
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col relative overflow-hidden w-full">
+        {/* Header */}
+        <header className="px-6 py-2 md:py-4 md:px-10 flex items-center md:items-end justify-between md:justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
+          <div className="flex flex-col md:block w-full md:w-auto text-left md:text-left">
+            <h1 className="text-2xl md:text-3xl font-serif italic tracking-tight flex items-center gap-2">
+              <span className="font-bold text-[#F6B45A] not-italic">Omnia's</span> Light Scape PRO
+            </h1>
+            <h2 className="hidden md:block text-[10px] md:text-xs text-gray-400 font-medium tracking-[0.2em] uppercase mt-1">
+              DAYTIME PHOTO TO LIGHTING MOCK UP IN SECONDS!!!
+            </h2>
+          </div>
+        </header>
+
+        {/* Views */}
+        <div className="flex-1 overflow-y-auto relative bg-[#FDFCFB] pb-24 md:pb-0">
+          
+          {view === 'projects' && (
+            <ProjectGallery 
+                projects={projects} 
+                onSelectProject={handleLoadProject} 
+                onDeleteProject={handleDeleteProject}
+            />
+          )}
+
+          {view === 'settings' && (
+             <SettingsPage 
+                user={user}
+                userSettings={userSettings}
+                subscription={subscription}
+                trialState={trialState}
+                onSaveSettings={handleSaveUserSettings}
+                onUpgrade={() => setShowPricing(true)}
+             />
+          )}
+
+          {view === 'editor' && (
+            <div className="h-full flex flex-col items-center p-4 md:p-8 max-w-7xl mx-auto w-full">
+              
+              {!uploadedImage ? (
+                // UPLOAD STATE
+                <div className="flex-1 w-full flex flex-col items-center justify-center">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="group relative w-full max-w-2xl aspect-video bg-white rounded-[28px] border-2 border-dashed border-gray-200 hover:border-[#F6B45A] hover:bg-[#F6B45A]/5 transition-all duration-300 flex flex-col items-center justify-center cursor-pointer shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] overflow-hidden"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-[#F9F9F9] group-hover:bg-white flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                      <Upload size={32} className="text-gray-400 group-hover:text-[#F6B45A] transition-colors" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#111] mb-2 group-hover:text-[#F6B45A] transition-colors">Upload House Photo</h3>
+                    <p className="text-sm text-gray-400 font-medium tracking-wide">Drag & drop or click to browse</p>
+                  </div>
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleFileUpload}
+                  />
+                  <p className="mt-8 text-xs font-medium text-gray-400 uppercase tracking-widest">
+                    Upload a daytime house photo to start your first AI lighting mockup.
+                  </p>
+                </div>
+              ) : !generatedImage ? (
+                // DESIGN MODE
+                <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   
+                   {/* Canvas HUD */}
+                   <div className="w-full max-w-7xl flex justify-between items-center mb-4 px-2">
+                      <div className="flex items-center gap-3">
+                         <span className="bg-[#111] text-[#F6B45A] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg">
+                           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                           Design Mode
+                         </span>
+                      </div>
+                      <button 
+                        onClick={() => { setUploadedImage(null); setMarkers([]); }}
+                        className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#111] hover:border-[#111] transition-all shadow-sm"
+                        title="Reset Image"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                   </div>
+
+                   {/* Main Canvas */}
+                   <div className="relative w-fit mx-auto shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] rounded-[20px] overflow-hidden bg-black border border-gray-100 group">
+                      
+                      {/* Interactive Image Container */}
+                      <div 
+                        ref={inputImageContainerRef}
+                        className="relative cursor-crosshair select-none"
+                        onClick={(e) => handleImageClick(e, inputImageContainerRef)}
+                        onMouseMove={(e) => handleMouseMove(e, inputImageContainerRef)}
+                      >
+                         <img 
+                           src={uploadedImage} 
+                           alt="Input" 
+                           className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain"
+                         />
+                         
+                         {/* Markers Overlay */}
+                         {markers.map((marker) => (
+                           <React.Fragment key={marker.id}>
+                              {/* Vector Line */}
+                              <div 
+                                className="absolute pointer-events-none origin-left opacity-90"
+                                style={{
+                                  left: `${marker.x}%`,
+                                  top: `${marker.y}%`,
+                                  width: `${marker.throw}%`,
+                                  height: '2px',
+                                  backgroundColor: getMarkerColor(marker.type),
+                                  transform: `rotate(${marker.angle}deg)`,
+                                }}
+                              >
+                                 {/* Arrowhead via CSS/SVG marker logic requires SVG wrapper, simplified here with border trick or pure CSS */}
+                                 {/* Using SVG Overlay for correct Arrowheads */}
+                              </div>
+                              
+                              {/* Dot */}
+                              <div 
+                                className="absolute w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full border border-white/50 shadow-sm cursor-pointer hover:scale-125 transition-transform z-10"
+                                style={{ 
+                                    left: `${marker.x}%`, 
+                                    top: `${marker.y}%`,
+                                    backgroundColor: getMarkerColor(marker.type)
+                                }}
+                                onClick={(e) => handleMarkerLeftClick(e, marker.id)}
+                                onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
+                              />
+                           </React.Fragment>
+                         ))}
+
+                         {/* SVG Layer for Arrowheads */}
+                         <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            {markers.map(marker => {
+                               // Convert percentage to coordinate for SVG is tricky without resizing
+                               // Simple CSS rotation above is easier, but arrowheads need SVG
+                               return null; 
+                            })}
+                         </svg>
+                      </div>
+
+                   </div>
+
+                   {/* Design Cockpit */}
+                   <div className="w-full max-w-4xl mt-6 space-y-6">
+                      
+                      {/* Fixture Toolbar */}
+                      <div className="bg-[#111] rounded-xl p-2 flex items-center justify-center gap-2 md:gap-4 shadow-xl shadow-black/10 overflow-x-auto hidden md:flex">
+                         {[
+                           { id: 'none', label: 'Select / Move', icon: MousePointer2 },
+                           { id: 'up', label: 'Up Light', icon: ArrowUpFromLine },
+                           { id: 'path', label: 'Path Light', icon: CircleDot },
+                           { id: 'gutter', label: 'Gutter Mount', icon: ChevronsUp },
+                         ].map((tool) => (
+                           <button
+                             key={tool.id}
+                             onClick={() => setActiveTool(tool.id as any)}
+                             className={`
+                               flex items-center gap-2 px-4 py-3 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap
+                               ${activeTool === tool.id 
+                                 ? 'bg-[#1F1F1F] text-[#F6B45A] border border-[#F6B45A]/30 shadow-[0_0_15px_-3px_rgba(246,180,90,0.3)]' 
+                                 : 'text-gray-500 hover:text-white hover:bg-white/5 border border-transparent'}
+                             `}
+                           >
+                              <tool.icon size={14} />
+                              {tool.label}
+                              {activeTool === tool.id && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] ml-2 animate-pulse" />}
+                           </button>
+                         ))}
+                      </div>
+
+                      {/* Architect Notes */}
+                      <div className="space-y-4">
+                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Architect Notes</p>
+                         <textarea
+                            value={userInstructions}
+                            onChange={(e) => setUserInstructions(e.target.value)}
+                            placeholder="Describe Specifics (Which Fixture, Number of fixtures, ect.)"
+                            className="w-full h-24 bg-white border border-gray-200 rounded-xl p-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] resize-none shadow-sm transition-all hover:border-gray-300"
+                         />
+                         
+                         {/* Quick Prompts */}
+                         <div className="space-y-2">
+                           <div className="flex items-center gap-2 md:hidden" onClick={() => setIsQuickPromptsOpen(!isQuickPromptsOpen)}>
+                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quick Prompts</span>
+                             {isQuickPromptsOpen ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+                           </div>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:block">Quick Prompts</p>
+
+                           <div className={`${isQuickPromptsOpen ? 'flex' : 'hidden'} md:flex flex-col gap-2`}>
+                              <div className="flex flex-wrap gap-2">
+                                {QUICK_PROMPTS.slice(0, 4).map((prompt) => (
+                                   <button
+                                     key={prompt.label}
+                                     onClick={() => {
+                                        setUserInstructions(prompt.text);
+                                        setIsQuickPromptsOpen(false); // Close on mobile selection
+                                     }}
+                                     className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-colors whitespace-nowrap"
+                                   >
+                                     {prompt.label}
+                                   </button>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {QUICK_PROMPTS.slice(4).map((prompt) => (
+                                   <button
+                                     key={prompt.label}
+                                     onClick={() => {
+                                        setUserInstructions(prompt.text);
+                                        setIsQuickPromptsOpen(false); // Close on mobile selection
+                                     }}
+                                     className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-colors whitespace-nowrap"
+                                   >
+                                     {prompt.label}
+                                   </button>
+                                ))}
+                              </div>
+                           </div>
+                         </div>
+                      </div>
+
+                      {/* Generate Actions */}
+                      <div className="grid grid-cols-12 gap-4">
+                        <button
+                          onClick={() => runGeneration('auto')}
+                          disabled={isGenerating}
+                          className="col-span-8 bg-[#111] text-white rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-lg hover:shadow-xl hover:scale-[1.01] disabled:opacity-70 disabled:hover:scale-100 group"
+                        >
+                          {isGenerating ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <Loader2 size={16} className="animate-spin text-[#F6B45A]" /> Generating...
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-2 group-hover:text-[#F6B45A] transition-colors">
+                              <Sparkles size={16} /> Auto-Design
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => runGeneration('manual')}
+                          disabled={isGenerating}
+                          className="col-span-4 bg-white border border-gray-200 text-[#111] rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:border-[#111] hover:bg-gray-50 transition-all shadow-sm"
+                        >
+                          <span className="flex items-center justify-center gap-2">
+                             <PencilLine size={16} /> Manual Design
+                          </span>
+                        </button>
+                      </div>
+                      
+                      {error && (
+                        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100">
+                          <AlertCircle size={14} /> {error}
                         </div>
-                        {selectedTemp.id === temp.id && (
-                            <div className="w-2 h-2 rounded-full bg-[#F6B45A] shadow-[0_0_8px_rgba(246,180,90,0.8)] animate-pulse"></div>
-                        )}
-                    </button>
-                ))}
+                      )}
+
+                   </div>
+                </div>
+              ) : (
+                // RESULT MODE
+                <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
+                   
+                   <div className="w-full max-w-7xl flex justify-between items-center mb-6">
+                      <button 
+                        onClick={() => { setGeneratedImage(null); setFeedbackStatus('none'); setCritiques([]); }}
+                        className="flex items-center gap-2 text-gray-400 hover:text-[#111] transition-colors text-xs font-bold uppercase tracking-widest group"
+                      >
+                        <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> Back to Editor
+                      </button>
+                      
+                      <div className="flex gap-4">
+                         {/* Mobile Floating Save Button Logic handled separately */}
+                         <button 
+                           className="hidden md:flex bg-white text-[#111] px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest border border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-all items-center gap-2 shadow-sm"
+                           onClick={handleSaveProject}
+                         >
+                           <Save size={14} /> Save Project
+                         </button>
+                         <a 
+                           href={generatedImage} 
+                           download={`omnia-design-${Date.now()}.png`}
+                           className="bg-gradient-to-r from-[#111] to-[#333] text-white px-8 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-black/20 flex items-center gap-2 group"
+                         >
+                           Download Mockup <Download size={14} className="group-hover:translate-y-0.5 transition-transform" />
+                         </a>
+                      </div>
+                   </div>
+
+                   {/* Generated Image Container */}
+                   <div className="relative w-fit mx-auto shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] rounded-[28px] overflow-hidden bg-black group">
+                      
+                      {/* Brand Tag */}
+                      <div className="absolute top-6 right-6 z-20">
+                         <span className="bg-black/80 backdrop-blur-md text-[#F6B45A] border border-[#F6B45A]/20 px-4 py-1.5 rounded-full text-[10px] md:text-xs font-serif font-bold tracking-wider shadow-xl">
+                           <span className="text-white">Omnia's</span> Light Scape PRO
+                         </span>
+                      </div>
+                      
+                      {/* Image */}
+                      <div 
+                         ref={resultImageContainerRef}
+                         className="relative cursor-zoom-in"
+                         onClick={() => setPreviewImage(generatedImage)} 
+                      >
+                         <img 
+                           src={generatedImage} 
+                           alt="Generated Mockup" 
+                           className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain transition-transform duration-700 group-hover:scale-[1.01]" 
+                         />
+                         
+                         {/* Interactive Markers on Result (Only visible when tool is active for feedback) */}
+                         {feedbackStatus === 'disliked' && activeTool !== 'none' && (
+                             <div 
+                                className="absolute inset-0 cursor-crosshair z-30"
+                                onClick={(e) => {
+                                   e.stopPropagation(); // Prevent lightbox
+                                   handleImageClick(e, resultImageContainerRef);
+                                }}
+                                onMouseMove={(e) => handleMouseMove(e, resultImageContainerRef)}
+                             >
+                                 {markers.map((marker) => (
+                                   <React.Fragment key={marker.id}>
+                                      <div 
+                                        className="absolute pointer-events-none origin-left opacity-90"
+                                        style={{
+                                          left: `${marker.x}%`,
+                                          top: `${marker.y}%`,
+                                          width: `${marker.throw}%`,
+                                          height: '2px',
+                                          backgroundColor: getMarkerColor(marker.type),
+                                          transform: `rotate(${marker.angle}deg)`,
+                                        }}
+                                      />
+                                      <div 
+                                        className="absolute w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full border border-white/50 shadow-sm cursor-pointer z-40"
+                                        style={{ 
+                                            left: `${marker.x}%`, 
+                                            top: `${marker.y}%`,
+                                            backgroundColor: getMarkerColor(marker.type)
+                                        }}
+                                        onClick={(e) => handleMarkerLeftClick(e, marker.id)}
+                                        onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
+                                      />
+                                   </React.Fragment>
+                                 ))}
+                             </div>
+                         )}
+                      </div>
+
+                      {/* Loading Overlay */}
+                      {isGenerating && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
+                           <Loader2 size={40} className="animate-spin mb-4 text-[#F6B45A]" />
+                           <p className="font-bold tracking-widest uppercase text-xs">Refining Design...</p>
+                        </div>
+                      )}
+                   </div>
+                   
+                   {/* Feedback Section */}
+                   <div className="mt-8 w-full max-w-2xl animate-in slide-in-from-bottom-8 duration-700 delay-300">
+                      <div className="bg-white rounded-[24px] border border-gray-100 p-1 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] flex flex-col items-center">
+                         
+                         <div className="flex items-center gap-1 p-2 w-full">
+                            <button 
+                              onClick={() => setFeedbackStatus('liked')}
+                              className={`flex-1 py-4 rounded-xl flex flex-col items-center gap-2 transition-all duration-300 ${feedbackStatus === 'liked' ? 'bg-green-50 text-green-600 ring-1 ring-green-200' : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600'}`}
+                            >
+                               <ThumbsUp size={20} className={feedbackStatus === 'liked' ? 'fill-current' : ''} />
+                               <span className="text-[10px] font-bold uppercase tracking-widest">Perfect</span>
+                            </button>
+                            <div className="w-px h-10 bg-gray-100"></div>
+                            <button 
+                              onClick={() => setFeedbackStatus('disliked')}
+                              className={`flex-1 py-4 rounded-xl flex flex-col items-center gap-2 transition-all duration-300 ${feedbackStatus === 'disliked' ? 'bg-red-50 text-red-600 ring-1 ring-red-200' : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600'}`}
+                            >
+                               <ThumbsDown size={20} className={feedbackStatus === 'disliked' ? 'fill-current' : ''} />
+                               <span className="text-[10px] font-bold uppercase tracking-widest">Needs Fix</span>
+                            </button>
+                         </div>
+
+                         {feedbackStatus === 'disliked' && (
+                            <div className="w-full p-6 border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
+                               <p className="text-xs font-bold text-[#111] mb-4 uppercase tracking-widest text-center">
+                                 Not perfect? Tap the thumbs down and explain what you want to be done and we will fix it!
+                               </p>
+                               
+                               <div className="flex flex-wrap gap-2 justify-center mb-6">
+                                  {FEEDBACK_OPTIONS.map(opt => (
+                                     <button
+                                       key={opt}
+                                       onClick={() => {
+                                          if (selectedFeedbackOptions.includes(opt)) {
+                                             setSelectedFeedbackOptions(prev => prev.filter(o => o !== opt));
+                                          } else {
+                                             setSelectedFeedbackOptions(prev => [...prev, opt]);
+                                          }
+                                       }}
+                                       className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all ${selectedFeedbackOptions.includes(opt) ? 'bg-[#111] text-white border-[#111]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
+                                     >
+                                        {opt}
+                                     </button>
+                                  ))}
+                               </div>
+                               
+                               {/* Fixture Toolbar for Adding/Moving Lights in Feedback Mode */}
+                               <div className="flex justify-center mb-6">
+                                  <div className="bg-[#111] rounded-full p-1.5 flex gap-2 shadow-lg">
+                                     {[
+                                       { id: 'none', label: 'Select', icon: MousePointer2 },
+                                       { id: 'up', label: 'Up', icon: ArrowUpFromLine },
+                                       { id: 'path', label: 'Path', icon: CircleDot },
+                                       { id: 'gutter', label: 'Gutter', icon: ChevronsUp },
+                                     ].map((tool) => (
+                                       <button
+                                         key={tool.id}
+                                         onClick={() => setActiveTool(tool.id as any)}
+                                         className={`p-2 rounded-full transition-all ${activeTool === tool.id ? 'bg-[#F6B45A] text-black' : 'text-gray-400 hover:text-white'}`}
+                                         title={tool.label}
+                                       >
+                                          <tool.icon size={14} />
+                                       </button>
+                                     ))}
+                                  </div>
+                               </div>
+
+                               <div className="relative">
+                                  <textarea 
+                                    value={currentCritiqueInput}
+                                    onChange={(e) => setCurrentCritiqueInput(e.target.value)}
+                                    placeholder="Explain Issue..."
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-[#111] resize-none h-24"
+                                  />
+                                  <button 
+                                    onClick={handleSubmitFeedback}
+                                    className="absolute bottom-3 right-3 bg-[#111] text-white px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors"
+                                  >
+                                    Fix It
+                                  </button>
+                               </div>
+                            </div>
+                         )}
+
+                      </div>
+                   </div>
+
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {/* Floating Save Button (Mobile Only) */}
+        {generatedImage && (
+            <button 
+                onClick={handleSaveProject}
+                className="md:hidden fixed bottom-20 right-4 z-[60] w-12 h-12 bg-[#111] text-[#F6B45A] rounded-full shadow-lg border border-[#F6B45A]/20 flex items-center justify-center animate-in zoom-in duration-300"
+            >
+                <Save size={20} />
+            </button>
+        )}
+
+      </main>
+
+      {/* Right Sidebar (Settings Panel - Hidden on Mobile, Fixed on Desktop) */}
+      <aside className="hidden lg:flex w-80 bg-[#111] border-l border-gray-800 flex-col h-screen shrink-0 relative z-30">
+          <div className="p-6 border-b border-gray-800">
+             <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em] mb-1">Configuration</h3>
+             <p className="text-[10px] text-gray-500 font-medium">Global Rendering Settings</p>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 space-y-8">
+             
+             {/* Refinement Section */}
+             <div className="space-y-2">
+               <div className="flex items-center gap-2 mb-4">
+                  <Sliders size={14} className="text-[#F6B45A]" />
+                  <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Refinement</span>
+               </div>
+               
+               <Slider 
+                  label="Ambient Light" 
+                  value={settings.ambientLight} 
+                  onChange={(val) => setSettings({...settings, ambientLight: val})} 
+               />
+               <Slider 
+                  label="Fixture Brightness" 
+                  value={settings.intensity} 
+                  onChange={(val) => setSettings({...settings, intensity: val})} 
+               />
+               <Slider 
+                  label="Texture Realism" 
+                  value={settings.textureRealism} 
+                  onChange={(val) => setSettings({...settings, textureRealism: val})} 
+               />
+               <Slider 
+                  label="Shadow Contrast" 
+                  value={settings.shadowContrast} 
+                  onChange={(val) => setSettings({...settings, shadowContrast: val})} 
+               />
              </div>
           </div>
-          {/* Overlay to dim main content */}
-          <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[1px] pointer-events-none" />
-        </>
-      )}
 
-      {/* REFINE FLYOUT */}
-      {isRefinePanelOpen && (
-        <>
-           <div className="fixed inset-0 z-20" onClick={() => setIsRefinePanelOpen(false)} />
-           <div className="absolute left-0 bottom-16 w-full md:left-32 md:bottom-0 md:top-0 md:w-80 bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] md:shadow-[20px_0_40px_rgba(0,0,0,0.5)] z-30 animate-in slide-in-from-bottom-4 md:slide-in-from-left-4 duration-300 p-8 overflow-y-auto rounded-t-2xl md:rounded-none">
-             <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em]">Fine Tuning</h3>
-                <button onClick={() => setIsRefinePanelOpen(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
-             </div>
-             <div className="space-y-6 bg-[#1a1a1a] p-6 rounded-2xl border border-gray-800">
-                <Slider label="Ambient Light" value={settings.ambientLight} onChange={(v) => setSettings({...settings, ambientLight: v})} />
-                <div className="h-px bg-gray-800/50" />
-                <Slider label="Fixture Brightness" value={settings.intensity} onChange={(v) => setSettings({...settings, intensity: v})} />
-                <div className="h-px bg-gray-800/50" />
-                <Slider label="Texture Details" value={settings.textureRealism} onChange={(v) => setSettings({...settings, textureRealism: v})} />
-                <div className="h-px bg-gray-800/50" />
-                <Slider label="Shadow Contrast" value={settings.shadowContrast} onChange={(v) => setSettings({...settings, shadowContrast: v})} />
+          <div className="p-6 border-t border-gray-800 bg-[#0A0A0A]">
+             <button 
+               className="w-full bg-[#1F1F1F] text-gray-400 hover:text-white py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-gray-800 hover:border-gray-600 transition-all"
+               onClick={() => {
+                  setSettings({
+                    darkSkyMode: true,
+                    preserveNonLit: true,
+                    highRealism: true,
+                    intensity: 80,
+                    textureRealism: 80,
+                    shadowContrast: 60,
+                    ambientLight: 20,
+                  });
+                  setSelectedTemp(COLOR_TEMPERATURES[1]);
+               }}
+             >
+               Reset Defaults
+             </button>
+          </div>
+      </aside>
+
+      {/* Color Flyout Panel */}
+      {isColorPanelOpen && (
+         <>
+            {/* Backdrop */}
+            <div 
+               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" 
+               onClick={() => setIsColorPanelOpen(false)}
+            />
+            {/* Panel */}
+            <div className="fixed md:absolute top-auto bottom-0 md:top-0 left-0 md:left-32 w-full md:w-64 h-auto md:h-screen bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-left-4 duration-300">
+               <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center gap-2">
+                     <Palette size={14} className="text-[#F6B45A]" />
+                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Color Temp</span>
+                  </div>
+                  <button onClick={() => setIsColorPanelOpen(false)} className="md:hidden text-gray-500">
+                     <X size={16} />
+                  </button>
+               </div>
+               
+               <div className="space-y-3">
+                  {COLOR_TEMPERATURES.map(temp => (
+                    <button
+                      key={temp.id}
+                      onClick={() => setSelectedTemp(temp)}
+                      className={`
+                        w-full flex items-center justify-between p-3 rounded-lg border transition-all group
+                        ${selectedTemp.id === temp.id 
+                          ? 'bg-[#1F1F1F] border-[#F6B45A] shadow-[0_0_15px_-5px_rgba(246,180,90,0.3)]' 
+                          : 'bg-[#0A0A0A] border-gray-800 hover:border-gray-600'}
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                           className="w-8 h-8 rounded-full shadow-inner border border-white/10"
+                           style={{ backgroundColor: temp.color, boxShadow: `0 0 10px ${temp.color}40` }}
+                        />
+                        <div className="text-left">
+                          <p className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
+                             {temp.kelvin}
+                          </p>
+                          <p className="text-[9px] text-gray-500 uppercase tracking-wide">{temp.description}</p>
+                        </div>
+                      </div>
+                      {selectedTemp.id === temp.id && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] shadow-[0_0_5px_#F6B45A]" />}
+                    </button>
+                  ))}
+               </div>
             </div>
-           </div>
-           {/* Overlay to dim main content */}
-          <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[1px] pointer-events-none" />
-        </>
+         </>
+      )}
+      
+       {/* Refine Flyout Panel (Mobile Only - Desktop is separate right panel) */}
+       {isRefinePanelOpen && (
+         <>
+            <div 
+               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" 
+               onClick={() => setIsRefinePanelOpen(false)}
+            />
+            <div className="fixed bottom-0 left-0 w-full bg-[#111] border-t border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 md:hidden rounded-t-3xl">
+               <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center gap-2">
+                     <Sliders size={14} className="text-[#F6B45A]" />
+                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Refinement</span>
+                  </div>
+                  <button onClick={() => setIsRefinePanelOpen(false)} className="text-gray-500">
+                     <X size={16} />
+                  </button>
+               </div>
+               <div className="space-y-6">
+                   <Slider 
+                      label="Ambient Light" 
+                      value={settings.ambientLight} 
+                      onChange={(val) => setSettings({...settings, ambientLight: val})} 
+                   />
+                   <Slider 
+                      label="Fixture Brightness" 
+                      value={settings.intensity} 
+                      onChange={(val) => setSettings({...settings, intensity: val})} 
+                   />
+                   <Slider 
+                      label="Texture Realism" 
+                      value={settings.textureRealism} 
+                      onChange={(val) => setSettings({...settings, textureRealism: val})} 
+                   />
+                   <Slider 
+                      label="Shadow Contrast" 
+                      value={settings.shadowContrast} 
+                      onChange={(val) => setSettings({...settings, shadowContrast: val})} 
+                   />
+               </div>
+            </div>
+         </>
       )}
 
+      {/* Modals */}
       <Pricing 
         isOpen={showPricing} 
         onClose={() => setShowPricing(false)} 
         onSubscribe={handleSubscribe} 
       />
 
-      {view === 'settings' ? (
-        <SettingsPage 
-          user={user}
-          userSettings={userSettings}
-          subscription={subscription}
-          trialState={trialState}
-          onSaveSettings={handleSaveUserSettings}
-          onUpgrade={() => setShowPricing(true)}
-        />
-      ) : view === 'projects' ? (
-        <ProjectGallery 
-          projects={projects} 
-          onSelectProject={handleLoadProject} 
-          onDeleteProject={handleDeleteProject}
-        />
-      ) : (
-        <>
-          {/* Main Workspace */}
-          <main className="flex-1 flex flex-col relative overflow-hidden h-full">
-            {/* Header */}
-            <header className="px-4 md:px-8 py-4 md:py-4 flex-shrink-0 flex justify-center md:justify-between items-center md:items-end bg-[#111] shadow-2xl z-30 w-full relative">
-              <div className="text-left w-full flex justify-between md:block">
-                <h1 className="text-2xl md:text-3xl font-serif font-black tracking-tight text-white leading-none md:leading-normal"><span className="text-[#F6B45A]">Omnia's</span> Light Scape PRO</h1>
-                <h2 className="hidden md:block text-[8px] md:text-[10px] text-gray-400 font-medium tracking-widest uppercase ml-1">DAYTIME PHOTO TO LIGHTING MOCK UP IN SECONDS!!!</h2>
-              </div>
-            </header>
+      <Paywall 
+        isOpen={showPaywall} 
+        onSubscribe={handleSubscribe} 
+        onManageBilling={handleManageBilling}
+        userSubscriptionStatus={subscription?.status || 'none'}
+      />
 
-            {/* Content Container (Full Width) */}
-            <div className="flex-1 flex overflow-hidden h-full relative">
-                
-                {/* CANVAS & ACTIONS */}
-                <div className="w-full h-full overflow-y-auto px-4 md:px-8 pb-12 pt-6 flex flex-col gap-6 scrollbar-hide bg-[#FDFCFB]">
-                {error && (
-                    <div className="bg-red-50/50 backdrop-blur-sm text-red-600 px-6 py-4 rounded-2xl flex items-center gap-3 text-sm border border-red-100 mb-2 shadow-sm">
-                        <AlertCircle size={18} />
-                        {error}
-                        <button onClick={() => setError(null)} className="ml-auto font-medium hover:text-red-700 underline">Dismiss</button>
-                    </div>
-                )}
-
-                {/* STAGE 1: UPLOAD */}
-                {!uploadedImage && (
-                    <div 
-                    className="flex-1 rounded-[32px] border-2 border-dashed border-gray-200/60 bg-white/40 hover:bg-white hover:border-[#F6B45A]/50 transition-all duration-500 flex flex-col items-center justify-center cursor-pointer min-h-[500px] group shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_40px_-10px_rgba(246,180,90,0.1)] relative overflow-hidden max-w-2xl mx-auto w-full"
-                    onClick={() => fileInputRef.current?.click()}
-                    >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-gray-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                    
-                    <div className="relative z-10 flex flex-col items-center">
-                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-gray-200/50 text-gray-300 group-hover:text-[#F6B45A] group-hover:scale-110 transition-all duration-500 ring-4 ring-gray-50 group-hover:ring-[#F6B45A]/10">
-                        <Upload size={32} strokeWidth={1.5} />
-                        </div>
-                        <h3 className="text-3xl font-bold text-[#111] mb-3 tracking-tight">Upload House Photo</h3>
-                        <p className="text-sm text-gray-400 font-medium tracking-wide mb-8 text-center px-4">Drag & Drop or Click to Browse High-Res Image</p>
-                        <div className="flex gap-2">
-                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-widest">JPG</span>
-                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-widest">PNG</span>
-                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-widest">WEBP</span>
-                        </div>
-                    </div>
-
-                    <div className="absolute bottom-10 text-[10px] text-gray-300 font-medium tracking-wide text-center px-4">
-                        Pro tip: High-resolution daytime photos produce the most realistic lighting.
-                    </div>
-
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                    </div>
-                )}
-
-                {/* STAGE 2: DESIGN */}
-                {uploadedImage && !generatedImage && (
-                    <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 h-full">
-                    
-                    {/* Cinematic Canvas - Full Width of Column */}
-                    <div className="w-full relative rounded-[32px] overflow-hidden bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-white/80 group ring-1 ring-black/5 max-w-4xl mx-auto">
-                        <div 
-                            className="relative w-full cursor-crosshair" 
-                            ref={inputImageContainerRef} 
-                            onClick={(e) => handleImageClick(e, inputImageContainerRef)}
-                            onMouseMove={(e) => handleMouseMove(e, inputImageContainerRef)}
-                        >
-                            <img src={uploadedImage} alt="Input" className="max-w-full w-auto h-auto max-h-[50vh] md:max-h-[70vh] block select-none object-contain mx-auto" />
-                            {renderOverlay()}
-                        </div>
-
-                        {/* Canvas HUD */}
-                        <div className="absolute top-3 left-3 right-3 md:top-6 md:left-6 md:right-6 flex justify-between items-center pointer-events-none">
-                            <div className="bg-black/80 backdrop-blur-xl px-3 py-1.5 md:px-5 md:py-2.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto flex items-center gap-2 md:gap-3">
-                                <div className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
-                                <span className="text-[8px] md:text-[10px] font-bold tracking-[0.2em] uppercase text-white">Design Mode</span>
-                            </div>
-                            <button 
-                                onClick={clearCanvas}
-                                className="bg-white/90 p-2 md:p-3 rounded-full shadow-lg hover:bg-white text-gray-400 hover:text-red-500 transition-colors pointer-events-auto border border-gray-100 hover:scale-110 duration-200"
-                                title="Reset Image"
-                            >
-                                <RefreshCw size={14} className="md:w-[18px] md:h-[18px]" strokeWidth={2} />
-                            </button>
-                        </div>
-
-                        {/* Loading State */}
-                        {isGenerating && (
-                            <div className="absolute inset-0 bg-white/90 backdrop-blur-xl flex items-center justify-center z-50">
-                                <div className="flex flex-col items-center gap-8">
-                                    <div className="relative">
-                                    <div className="w-20 h-20 border-4 border-gray-100 rounded-full"></div>
-                                    <div className="w-20 h-20 border-4 border-t-[#F6B45A] rounded-full animate-spin absolute top-0 left-0 shadow-[0_0_20px_rgba(246,180,90,0.3)]"></div>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#111] mb-2">Rendering Physics</p>
-                                        <p className="text-[10px] text-gray-400 font-medium">Calculating photons & shadows...</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Design Cockpit - Streamlined */}
-                    <div className="w-full flex flex-col gap-6 max-w-4xl mx-auto">
-                            
-                            {/* Fixture Tools - Horizontal Toolbar */}
-                            <div className="hidden md:flex items-center justify-between bg-[#111] p-2 rounded-2xl shadow-xl border border-gray-800">
-                                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-                                    {[
-                                        { id: 'none', label: 'Select', icon: <MousePointer2 size={16} /> },
-                                        { id: 'up', label: 'Up Light', icon: <ArrowUpFromLine size={16} /> },
-                                        { id: 'path', label: 'Path Light', icon: <CircleDot size={16} /> },
-                                        { id: 'gutter', label: 'Gutter', icon: <ChevronsUp size={16} /> },
-                                    ].map((tool) => {
-                                        const isActive = activeTool === tool.id;
-                                        return (
-                                            <button
-                                                key={tool.id}
-                                                onClick={() => { setActiveTool(tool.id as any); setAimingMarkerId(null); }}
-                                                className={`px-4 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 flex-shrink-0 ${
-                                                    isActive 
-                                                        ? 'bg-gray-800 text-[#F6B45A] shadow-lg border border-[#F6B45A]/30' 
-                                                        : 'text-gray-400 hover:text-white hover:bg-gray-800 border border-transparent'
-                                                }`}
-                                            >
-                                                {tool.icon}
-                                                <span className="text-xs font-bold tracking-wide">{tool.label}</span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                
-                                {markers.length > 0 && (
-                                    <button 
-                                        onClick={() => { setMarkers([]); setCritiques([]); }}
-                                        className="px-4 py-2 text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-wide flex items-center gap-1 transition-colors hover:bg-red-500/10 rounded-lg ml-2 flex-shrink-0"
-                                    >
-                                        <X size={12} /> Clear
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="relative">
-                                <div className="flex items-center gap-2 mb-3 px-1">
-                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Architect Notes</h3>
-                                </div>
-                                <textarea
-                                    value={userInstructions}
-                                    onChange={(e) => setUserInstructions(e.target.value)}
-                                    placeholder="Describe Specifics (Which Fixture, Number of fixtures, ect.)"
-                                    className="w-full bg-white border border-gray-100 rounded-2xl p-6 text-sm focus:outline-none focus:ring-2 focus:ring-[#F6B45A]/20 focus:border-[#F6B45A] transition-all resize-none h-24 placeholder:text-gray-300 shadow-sm hover:shadow-md"
-                                />
-                                
-                                {/* Quick Prompt Chips */}
-                                {/* Mobile Toggle Button */}
-                                <button
-                                    onClick={() => setIsQuickPromptsOpen(!isQuickPromptsOpen)}
-                                    className="md:hidden w-full py-3 bg-gray-100 rounded-xl flex items-center justify-between px-4 text-xs font-bold text-gray-500 uppercase tracking-wide mt-3 hover:bg-gray-200 transition-colors"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <Quote size={12} />
-                                        Select Quick Prompt
-                                    </div>
-                                    {isQuickPromptsOpen ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                                </button>
-
-                                <div className={`${isQuickPromptsOpen ? 'flex' : 'hidden'} md:flex flex-col gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200 md:animate-none`}>
-                                    <div className="hidden md:flex items-center gap-2 text-gray-400 text-[10px] font-bold uppercase tracking-wider mr-2">
-                                        <Quote size={10} /> Quick Prompts:
-                                    </div>
-                                    {/* Row 1: Simple Options */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {QUICK_PROMPTS.slice(0, 4).map((prompt, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleQuickPromptClick(prompt.text)}
-                                                className="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-bold text-gray-500 hover:bg-[#F6B45A]/10 hover:text-[#F6B45A] hover:border-[#F6B45A]/30 transition-all whitespace-nowrap"
-                                            >
-                                                {prompt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    {/* Row 2: Full Layout & Complex Themes */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {QUICK_PROMPTS.slice(4).map((prompt, idx) => (
-                                            <button
-                                                key={idx + 4}
-                                                onClick={() => handleQuickPromptClick(prompt.text)}
-                                                className="px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-[10px] font-bold text-gray-600 hover:bg-[#F6B45A]/10 hover:text-[#F6B45A] hover:border-[#F6B45A]/30 transition-all whitespace-nowrap"
-                                            >
-                                                {prompt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2 md:gap-4">
-                                <button
-                                onClick={() => runGeneration('auto')}
-                                disabled={!uploadedImage || isGenerating}
-                                className={`
-                                    flex-1 py-3 md:py-5 rounded-2xl font-bold text-[10px] md:text-sm tracking-[0.15em] uppercase transition-all duration-300 flex items-center gap-2 md:gap-3 justify-center border shadow-xl
-                                    ${!uploadedImage || isGenerating
-                                        ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed shadow-none'
-                                        : 'bg-gradient-to-r from-gray-900 via-[#1a1a1a] to-gray-800 border-gray-800 text-[#F6B45A] hover:scale-[1.01] hover:shadow-2xl hover:shadow-[#F6B45A]/10'
-                                    }
-                                `}
-                                >
-                                {isGenerating ? <Loader2 size={14} className="md:w-[18px] md:h-[18px] animate-spin" /> : <Sparkles size={14} className="md:w-[18px] md:h-[18px]" />}
-                                <div className="flex flex-col items-start leading-none">
-                                    <span>Auto-Design</span>
-                                </div>
-                                </button>
-                                
-                                <button
-                                onClick={() => runGeneration('manual')}
-                                disabled={!uploadedImage || isGenerating}
-                                className={`
-                                    flex-shrink-0 px-4 md:px-8 py-3 md:py-auto rounded-2xl font-bold text-[9px] md:text-xs tracking-[0.15em] uppercase transition-all duration-300 flex items-center gap-2 md:gap-3 justify-center border
-                                    ${!uploadedImage || isGenerating
-                                        ? 'bg-gray-50 text-gray-300 border-transparent cursor-not-allowed'
-                                        : 'bg-white text-[#111] border-gray-200 hover:border-gray-400 hover:bg-gray-50 shadow-sm hover:shadow-md'
-                                    }
-                                `}
-                                >
-                                {isGenerating ? <Loader2 size={12} className="md:w-[14px] md:h-[14px] animate-spin" /> : <PencilLine size={12} className="md:w-[14px] md:h-[14px]" />}
-                                Manual Design
-                                </button>
-                            </div>
-                    </div>
-                    </div>
-                )}
-
-                {/* STAGE 3: RESULT */}
-                {generatedImage && (
-                    <div className="flex flex-col gap-8 animate-in slide-in-from-bottom-8 fade-in duration-700 h-full">
-                        {/* Top Bar */}
-                        <div className="flex items-center justify-between">
-                            <button 
-                                onClick={handleBackToDesign}
-                                className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-[#111] transition-colors uppercase tracking-[0.15em] group pl-1"
-                            >
-                                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Edit
-                            </button>
-                        </div>
-
-                        <div className="w-full relative">
-                            {/* AFTER IMAGE ONLY */}
-                            <div 
-                                className={`relative rounded-[32px] overflow-hidden bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] border border-white/80 w-full group ring-1 ring-black/5 max-w-4xl mx-auto ${feedbackStatus === 'disliked' && activeTool !== 'none' ? 'cursor-crosshair' : 'cursor-zoom-in'}`}
-                                ref={resultImageContainerRef}
-                                onClick={(e) => {
-                                    if (feedbackStatus === 'disliked' && activeTool !== 'none') {
-                                        handleImageClick(e, resultImageContainerRef);
-                                    } else {
-                                        setGeneratedImage && setPreviewImage(generatedImage);
-                                    }
-                                }}
-                                onMouseMove={(e) => {
-                                    if (feedbackStatus === 'disliked' && activeTool !== 'none') {
-                                        handleMouseMove(e, resultImageContainerRef);
-                                    }
-                                }}
-                            >
-                                <div className="absolute top-3 left-3 md:top-6 md:left-6 z-10 bg-black/80 backdrop-blur-md px-2 py-1 md:px-4 md:py-2 rounded-full shadow-lg border border-white/10 flex items-center">
-                                     <span className="font-serif font-black italic text-[#F6B45A] text-[9px] md:text-xs tracking-wide">Omnia's</span>
-                                     <span className="font-serif font-bold text-white text-[9px] md:text-xs tracking-widest uppercase ml-1">Light Scape PRO</span>
-                                </div>
-                                <div className="absolute top-3 right-3 md:top-6 md:right-6 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                     <span className="bg-black/50 backdrop-blur-md text-white px-2 py-2 rounded-full flex items-center justify-center border border-white/10">
-                                        <Maximize2 size={16} />
-                                     </span>
-                                </div>
-                                <img src={generatedImage} alt="Generated Mockup" className="max-w-full w-auto h-auto max-h-[50vh] md:max-h-[70vh] block object-contain mx-auto" />
-                                
-                                {/* Overlay Vectors on Result Image for Corrections */}
-                                {feedbackStatus === 'disliked' && renderOverlay()}
-                                
-                                {/* Regenerating Overlay */}
-                                {isGenerating && (
-                                <div className="absolute inset-0 bg-white/90 backdrop-blur-xl flex items-center justify-center z-50">
-                                    <div className="flex flex-col items-center gap-6">
-                                        <Loader2 size={40} className="animate-spin text-[#F6B45A]" />
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#111]">Polishing Pixels...</p>
-                                    </div>
-                                </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Feedback Section - BELOW IMAGE */}
-                        <div className="flex flex-col items-center justify-center w-full max-w-2xl mx-auto pb-12">
-                            {!isGenerating && (
-                                <>
-                                    {feedbackStatus === 'disliked' ? (
-                                        <div className="bg-white border border-gray-100 shadow-xl rounded-[24px] p-8 flex flex-col gap-6 animate-in slide-in-from-bottom-4 fade-in w-full relative">
-                                            <button 
-                                                onClick={() => setFeedbackStatus('none')}
-                                                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                            
-                                            <div>
-                                                <h4 className="text-lg font-bold text-[#111] mb-2">What needs fixing?</h4>
-                                                <p className="text-gray-400 text-sm">Select common issues or add markers to the image above.</p>
-                                            </div>
-
-                                            {/* Toolbar for Feedback Corrections */}
-                                            <div className="flex items-center justify-between bg-gray-50 p-2 rounded-2xl border border-gray-100">
-                                                <div className="flex items-center gap-2">
-                                                    {[
-                                                        { id: 'none', label: 'Select', icon: <MousePointer2 size={14} /> },
-                                                        { id: 'up', label: 'Up Light', icon: <ArrowUpFromLine size={14} /> },
-                                                        { id: 'path', label: 'Path Light', icon: <CircleDot size={14} /> },
-                                                        { id: 'gutter', label: 'Gutter', icon: <ChevronsUp size={14} /> },
-                                                    ].map((tool) => {
-                                                        const isActive = activeTool === tool.id;
-                                                        return (
-                                                            <button
-                                                                key={tool.id}
-                                                                onClick={() => { setActiveTool(tool.id as any); setAimingMarkerId(null); }}
-                                                                className={`px-3 py-2 rounded-xl flex items-center gap-2 transition-all duration-200 ${
-                                                                    isActive 
-                                                                        ? 'bg-[#111] text-[#F6B45A] shadow-md' 
-                                                                        : 'text-gray-400 hover:text-[#111] hover:bg-gray-200'
-                                                                }`}
-                                                            >
-                                                                {tool.icon}
-                                                                <span className="text-[10px] font-bold tracking-wide hidden sm:inline">{tool.label}</span>
-                                                            </button>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex flex-wrap gap-2">
-                                                {FEEDBACK_OPTIONS.map(option => (
-                                                    <button
-                                                        key={option}
-                                                        onClick={() => toggleFeedbackOption(option)}
-                                                        className={`px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                                                            selectedFeedbackOptions.includes(option)
-                                                                ? 'bg-[#111] text-white border-[#111]'
-                                                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                                                        }`}
-                                                    >
-                                                        {option}
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            <textarea 
-                                                value={currentCritiqueInput} 
-                                                onChange={(e) => setCurrentCritiqueInput(e.target.value)}
-                                                placeholder="Explain Issue..." 
-                                                className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#F6B45A] focus:border-transparent transition-all resize-none h-24"
-                                            />
-
-                                            <button 
-                                                onClick={handleSubmitFeedback}
-                                                className="w-full bg-[#111] text-white py-4 rounded-xl font-bold text-sm hover:scale-[1.01] transition-transform shadow-lg"
-                                            >
-                                                Fix It & Regenerate
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-6">
-                                            <div className="bg-black/80 backdrop-blur-xl text-white px-6 py-3 rounded-full text-xs font-medium tracking-wide shadow-2xl mb-2 text-center">
-                                                Not perfect? Tap the thumbs down and explain what you want to be done and we will fix it!
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <button 
-                                                    onClick={() => setFeedbackStatus('liked')}
-                                                    className={`p-6 rounded-full border-2 transition-all duration-300 group ${
-                                                        feedbackStatus === 'liked' 
-                                                            ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
-                                                            : 'bg-white border-gray-100 text-gray-400 hover:border-green-500 hover:text-green-500 hover:shadow-xl hover:-translate-y-1'
-                                                    }`}
-                                                >
-                                                    <ThumbsUp size={24} strokeWidth={2} />
-                                                </button>
-                                                
-                                                <button 
-                                                    onClick={() => setFeedbackStatus('disliked')}
-                                                    className="p-6 rounded-full bg-white border-2 border-gray-100 text-gray-400 hover:border-red-500 hover:text-red-500 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1"
-                                                >
-                                                    <ThumbsDown size={24} strokeWidth={2} />
-                                                </button>
-                                            </div>
-                                            
-                                            <button 
-                                                onClick={handleDownload}
-                                                className="flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-gray-900 to-black text-[#F6B45A] rounded-full font-bold text-sm uppercase tracking-[0.15em] shadow-2xl hover:scale-105 transition-transform mt-4 border border-gray-800"
-                                            >
-                                                <Download size={18} /> Download Mockup
-                                            </button>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-                </div>
-            </div>
-          </main>
-        </>
-      )}
-
-      {/* Preview Lightbox */}
+      {/* Lightbox Preview */}
       {previewImage && (
         <div 
-            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in duration-300"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300"
             onClick={() => setPreviewImage(null)}
         >
-            <button 
-                className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors bg-white/10 p-3 rounded-full"
-                onClick={() => setPreviewImage(null)}
-            >
-                <X size={24} />
-            </button>
             <img 
                 src={previewImage} 
-                alt="Full Preview" 
                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
-                onClick={(e) => e.stopPropagation()} 
+                alt="Full Preview" 
             />
+            <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
+                <X size={32} />
+            </button>
         </div>
       )}
 
-      {/* Mobile Floating Save Button (Only when generated image exists) */}
-      {generatedImage && (
-          <button
-            onClick={handleSaveProject}
-            className="md:hidden fixed bottom-20 right-4 z-40 bg-[#111] text-[#F6B45A] p-4 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-[#F6B45A]/30 active:scale-95 transition-transform"
-          >
-            <Save size={24} />
-          </button>
-      )}
-
-      {/* Auth Overlay */}
-      {!user && (
-        <div className="absolute inset-0 z-50">
-          <Auth onLogin={handleLogin} />
+      {!apiKeyReady && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-6 text-center text-white backdrop-blur-md">
+           <Cpu size={48} className="mb-6 text-[#F6B45A] animate-pulse" />
+           <h2 className="text-2xl font-bold mb-2 tracking-tight">API Access Required</h2>
+           <p className="text-gray-400 mb-8 max-w-sm">To use Omnia's LightScape Pro, you must verify your session with Google AI Studio.</p>
+           <button 
+             onClick={handleKeySelection}
+             className="bg-[#F6B45A] text-[#111] px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:scale-105 transition-transform shadow-[0_0_20px_rgba(246,180,90,0.4)]"
+           >
+             Connect API Key
+           </button>
         </div>
       )}
+
     </div>
   );
 };
