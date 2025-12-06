@@ -1,31 +1,33 @@
 import { handleUpload } from '@vercel/blob/client';
 
 export const config = {
-  runtime: 'nodejs',
+  runtime: 'nodejs', // This is crucial
 };
 
-export default async function handler(request) {
-  const body = await request.json();
+export default async function handler(request, response) {
+  const body = await request.body;
 
   try {
     const jsonResponse = await handleUpload({
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
+        // Authenticate users here if needed in the future
         return {
-          allowedContentTypes: ['image/jpeg', 'image/png'],
+          allowedContentTypes: ['image/jpeg', 'image/png', 'image/gif'],
+          tokenPayload: JSON.stringify({
+            // Optional payload
+          }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('Upload finished:', blob.url);
+        console.log('Upload completed:', blob.url);
       },
     });
 
-    return new Response(JSON.stringify(jsonResponse));
+    response.status(200).json(jsonResponse);
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400 }
-    );
+    console.error(error);
+    response.status(400).json({ error: error.message });
   }
 }
