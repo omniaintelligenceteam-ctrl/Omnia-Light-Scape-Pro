@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/generative-ai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
 const MODEL_NAME = 'gemini-3-pro-image-preview';
