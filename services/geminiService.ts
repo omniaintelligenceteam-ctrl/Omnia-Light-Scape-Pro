@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
 // --- CONFIGURATION ---
-const MODEL_NAME = "gemini-1.5-flash"; 
+const MODEL_NAME = "nano-banana-pro"; 
 
 export const checkApiKey = async (): Promise<boolean> => {
   const key = import.meta.env.VITE_GEMINI_API_KEY;
