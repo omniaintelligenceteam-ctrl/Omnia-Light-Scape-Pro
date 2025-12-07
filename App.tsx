@@ -4,8 +4,6 @@ import { Toggle } from './components/Toggle';
 import { Slider } from './components/Slider';
 import { Auth } from './components/Auth';
 import { ProjectGallery } from './components/ProjectGallery';
-import { upload } from '@vercel/blob/client';
-import imageCompression from 'browser-image-compression';
 import { Pricing } from './components/Pricing';
 import { Paywall } from './components/Paywall';
 import { SettingsPage } from './components/SettingsPage';
@@ -37,9 +35,8 @@ const App: React.FC = () => {
   // App State
   const [apiKeyReady, setApiKeyReady] = useState<boolean>(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null); 
+  const [previewImage, setPreviewImage] = useState<string | null>(null); // State for lightbox
   const [selectedTemp, setSelectedTemp] = useState<ColorTemperature>(COLOR_TEMPERATURES[1]); 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -308,9 +305,39 @@ const App: React.FC = () => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setUploadedImage(ev.target.result as string);
+          setGeneratedImage(null);
+          setMarkers([]);
+          setError(null);
+          setCritiques([]); 
+          setFeedbackStatus('none');
+          setSelectedFeedbackOptions([]);
+          setActiveTool('up');
+          setAimingMarkerId(null);
+          
+          // Re-apply default template on new upload if set
+          if (userSettings?.default_design_template) {
+             const quickPrompt = QUICK_PROMPTS.find(p => p.label === userSettings.default_design_template);
+             if (quickPrompt) setUserInstructions(quickPrompt.text);
+          } else {
+             setUserInstructions("");
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
-
+    
+    // Preview Logic for Generated Image in Feedback Mode
     if (ref === resultImageContainerRef && generatedImage && activeTool === 'none') {
         setPreviewImage(generatedImage);
         return;
@@ -336,62 +363,6 @@ const App: React.FC = () => {
     };
     setMarkers([...markers, newMarker]);
     setAimingMarkerId(newMarker.id);
-  };
-
-  const handleFileUpload = async (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadedImage(null);
-    setUploadedImageUrl(null);
-    setGeneratedImage(null);
-    setMarkers([]);
-    setError(null);
-    setCritiques([]);
-    setFeedbackStatus('none');
-    setSelectedFeedbackOptions([]);
-    setActiveTool('up');
-    setAimingMarkerId(null);
-
-    try {
-      const options = {
-        maxSizeMB: 2,           
-        maxWidthOrHeight: 1920, 
-        useWebWorker: true,
-        fileType: "image/jpeg"
-      };
-      
-      console.log("Compressing image...");
-      const compressedFile = await imageCompression(file, options);
-
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setUploadedImage(ev.target.result as string);
-        }
-      };
-      reader.readAsDataURL(compressedFile);
-
-      console.log("Uploading to cloud...");
-      const newBlob = await upload(compressedFile.name, compressedFile, {
-        access: 'public',
-        handleUploadUrl: '/api/upload', 
-      });
-
-      setUploadedImageUrl(newBlob.url); 
-      console.log("Cloud URL ready:", newBlob.url);
-
-      if (userSettings?.default_design_template) {
-        const quickPrompt = QUICK_PROMPTS.find(p => p.label === userSettings.default_design_template);
-        if (quickPrompt) setUserInstructions(quickPrompt.text);
-      } else {
-        setUserInstructions("");
-      }
-
-    } catch (err) {
-      console.error("Upload failed:", err);
-      setError("Failed to process image. Please try again.");
-    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
@@ -472,7 +443,6 @@ const App: React.FC = () => {
     });
   };
 
-  // This must come BEFORE handleSubmitFeedback
   const runGeneration = async (mode: 'auto' | 'manual', critiqueList?: string[]) => {
     if (!uploadedImage) return;
     if (showPaywall) return;
@@ -482,12 +452,10 @@ const App: React.FC = () => {
     if (!critiqueList) setFeedbackStatus('none');
     try {
       if (!apiKeyReady) await handleKeySelection();
-      
       let imageToUse = uploadedImage;
-
-      if (mode === 'manual' || markers.length > 0) {
-          imageToUse = await prepareCompositeImage();
-      }
+      // If we are in feedback mode and added markers, we need to bake them into the image
+      // But we should use the ORIGINAL uploaded image as base, not the generated one
+      if (mode === 'manual' || markers.length > 0) imageToUse = await prepareCompositeImage();
       
       const markersToPass = (mode === 'manual' || markers.length > 0) ? markers : [];
       
@@ -509,7 +477,6 @@ const App: React.FC = () => {
         setApiKeyReady(false);
         setError("API Key session expired. Please re-select.");
       } else {
-        console.error("Generation Error:", err);
         setError("Failed to generate. Try again.");
       }
     } finally {
@@ -527,6 +494,7 @@ const App: React.FC = () => {
     }
 
     if (combinedCritique.length > 0 || markers.length > 0) {
+        // Trigger regeneration immediately with new feedback OR new markers
         runGeneration('manual', combinedCritique);
     }
   };
@@ -547,6 +515,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans">
       
+      {/* SVG Definitions for Arrows */}
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
         <defs>
           <marker id="arrowhead-up" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -575,7 +544,9 @@ const App: React.FC = () => {
         onSave={handleSaveProject}
       />
       
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative overflow-hidden w-full">
+        {/* Header */}
         <header className="px-6 py-2 md:py-4 md:px-10 flex items-center md:items-end justify-between md:justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
           <div className="flex flex-col md:block w-full md:w-auto text-left md:text-left">
             <h1 className="text-2xl md:text-3xl font-serif italic tracking-tight flex items-center gap-2">
@@ -587,6 +558,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
+        {/* Views */}
         <div className="flex-1 overflow-y-auto relative bg-[#FDFCFB] pb-24 md:pb-0">
           
           {view === 'projects' && (
@@ -612,6 +584,7 @@ const App: React.FC = () => {
             <div className="h-full flex flex-col items-center p-4 md:p-8 max-w-7xl mx-auto w-full">
               
               {!uploadedImage ? (
+                // UPLOAD STATE
                 <div className="flex-1 w-full flex flex-col items-center justify-center">
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -635,8 +608,10 @@ const App: React.FC = () => {
                   </p>
                 </div>
               ) : !generatedImage ? (
+                // DESIGN MODE
                 <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
                    
+                   {/* Canvas HUD */}
                    <div className="w-full max-w-7xl flex justify-between items-center mb-4 px-2">
                       <div className="flex items-center gap-3">
                          <span className="bg-[#111] text-[#F6B45A] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg">
@@ -653,8 +628,10 @@ const App: React.FC = () => {
                       </button>
                    </div>
 
+                   {/* Main Canvas */}
                    <div className="relative w-fit mx-auto shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] rounded-[20px] overflow-hidden bg-black border border-gray-100 group">
                       
+                      {/* Interactive Image Container */}
                       <div 
                         ref={inputImageContainerRef}
                         className="relative cursor-crosshair select-none"
@@ -667,8 +644,10 @@ const App: React.FC = () => {
                            className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain"
                          />
                          
+                         {/* Markers Overlay */}
                          {markers.map((marker) => (
                            <React.Fragment key={marker.id}>
+                              {/* Vector Line */}
                               <div 
                                 className="absolute pointer-events-none origin-left opacity-90"
                                 style={{
@@ -680,8 +659,11 @@ const App: React.FC = () => {
                                   transform: `rotate(${marker.angle}deg)`,
                                 }}
                               >
+                                 {/* Arrowhead via CSS/SVG marker logic requires SVG wrapper, simplified here with border trick or pure CSS */}
+                                 {/* Using SVG Overlay for correct Arrowheads */}
                               </div>
                               
+                              {/* Dot */}
                               <div 
                                 className="absolute w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full border border-white/50 shadow-sm cursor-pointer hover:scale-125 transition-transform z-10"
                                 style={{ 
@@ -695,8 +677,11 @@ const App: React.FC = () => {
                            </React.Fragment>
                          ))}
 
+                         {/* SVG Layer for Arrowheads */}
                          <svg className="absolute inset-0 w-full h-full pointer-events-none">
                             {markers.map(marker => {
+                               // Convert percentage to coordinate for SVG is tricky without resizing
+                               // Simple CSS rotation above is easier, but arrowheads need SVG
                                return null; 
                             })}
                          </svg>
@@ -704,8 +689,10 @@ const App: React.FC = () => {
 
                    </div>
 
+                   {/* Design Cockpit */}
                    <div className="w-full max-w-4xl mt-6 space-y-6">
                       
+                      {/* Fixture Toolbar */}
                       <div className="bg-[#111] rounded-xl p-2 flex items-center justify-center gap-2 md:gap-4 shadow-xl shadow-black/10 overflow-x-auto hidden md:flex">
                          {[
                            { id: 'none', label: 'Select / Move', icon: MousePointer2 },
@@ -730,6 +717,7 @@ const App: React.FC = () => {
                          ))}
                       </div>
 
+                      {/* Architect Notes */}
                       <div className="space-y-4">
                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Architect Notes</p>
                          <textarea
@@ -739,6 +727,7 @@ const App: React.FC = () => {
                             className="w-full h-24 bg-white border border-gray-200 rounded-xl p-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] resize-none shadow-sm transition-all hover:border-gray-300"
                          />
                          
+                         {/* Quick Prompts */}
                          <div className="space-y-2">
                            <div className="flex items-center gap-2 md:hidden" onClick={() => setIsQuickPromptsOpen(!isQuickPromptsOpen)}>
                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quick Prompts</span>
@@ -753,7 +742,7 @@ const App: React.FC = () => {
                                      key={prompt.label}
                                      onClick={() => {
                                         setUserInstructions(prompt.text);
-                                        setIsQuickPromptsOpen(false); 
+                                        setIsQuickPromptsOpen(false); // Close on mobile selection
                                      }}
                                      className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-colors whitespace-nowrap"
                                    >
@@ -767,7 +756,7 @@ const App: React.FC = () => {
                                      key={prompt.label}
                                      onClick={() => {
                                         setUserInstructions(prompt.text);
-                                        setIsQuickPromptsOpen(false); 
+                                        setIsQuickPromptsOpen(false); // Close on mobile selection
                                      }}
                                      className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-colors whitespace-nowrap"
                                    >
@@ -779,6 +768,7 @@ const App: React.FC = () => {
                          </div>
                       </div>
 
+                      {/* Generate Actions */}
                       <div className="grid grid-cols-12 gap-4">
                         <button
                           onClick={() => runGeneration('auto')}
@@ -815,6 +805,7 @@ const App: React.FC = () => {
                    </div>
                 </div>
               ) : (
+                // RESULT MODE
                 <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
                    
                    <div className="w-full max-w-7xl flex justify-between items-center mb-6">
@@ -826,6 +817,7 @@ const App: React.FC = () => {
                       </button>
                       
                       <div className="flex gap-4">
+                         {/* Mobile Floating Save Button Logic handled separately */}
                          <button 
                            className="hidden md:flex bg-white text-[#111] px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest border border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-all items-center gap-2 shadow-sm"
                            onClick={handleSaveProject}
@@ -842,14 +834,17 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
+                   {/* Generated Image Container */}
                    <div className="relative w-fit mx-auto shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] rounded-[28px] overflow-hidden bg-black group">
                       
+                      {/* Brand Tag */}
                       <div className="absolute top-6 right-6 z-20">
                          <span className="bg-black/80 backdrop-blur-md text-[#F6B45A] border border-[#F6B45A]/20 px-4 py-1.5 rounded-full text-[10px] md:text-xs font-serif font-bold tracking-wider shadow-xl">
                            <span className="text-white">Omnia's</span> Light Scape PRO
                          </span>
                       </div>
                       
+                      {/* Image */}
                       <div 
                          ref={resultImageContainerRef}
                          className="relative cursor-zoom-in"
@@ -861,11 +856,12 @@ const App: React.FC = () => {
                            className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain transition-transform duration-700 group-hover:scale-[1.01]" 
                          />
                          
+                         {/* Interactive Markers on Result (Only visible when tool is active for feedback) */}
                          {feedbackStatus === 'disliked' && activeTool !== 'none' && (
                              <div 
                                 className="absolute inset-0 cursor-crosshair z-30"
                                 onClick={(e) => {
-                                   e.stopPropagation(); 
+                                   e.stopPropagation(); // Prevent lightbox
                                    handleImageClick(e, resultImageContainerRef);
                                 }}
                                 onMouseMove={(e) => handleMouseMove(e, resultImageContainerRef)}
@@ -899,6 +895,7 @@ const App: React.FC = () => {
                          )}
                       </div>
 
+                      {/* Loading Overlay */}
                       {isGenerating && (
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
                            <Loader2 size={40} className="animate-spin mb-4 text-[#F6B45A]" />
@@ -907,6 +904,7 @@ const App: React.FC = () => {
                       )}
                    </div>
                    
+                   {/* Feedback Section */}
                    <div className="mt-8 w-full max-w-2xl animate-in slide-in-from-bottom-8 duration-700 delay-300">
                       <div className="bg-white rounded-[24px] border border-gray-100 p-1 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] flex flex-col items-center">
                          
@@ -952,6 +950,7 @@ const App: React.FC = () => {
                                   ))}
                                </div>
                                
+                               {/* Fixture Toolbar for Adding/Moving Lights in Feedback Mode */}
                                <div className="flex justify-center mb-6">
                                   <div className="bg-[#111] rounded-full p-1.5 flex gap-2 shadow-lg">
                                      {[
@@ -998,6 +997,7 @@ const App: React.FC = () => {
           )}
         </div>
         
+        {/* Floating Save Button (Mobile Only) */}
         {generatedImage && (
             <button 
                 onClick={handleSaveProject}
@@ -1009,6 +1009,7 @@ const App: React.FC = () => {
 
       </main>
 
+      {/* Right Sidebar (Settings Panel - Hidden on Mobile, Fixed on Desktop) */}
       <aside className="hidden lg:flex w-80 bg-[#111] border-l border-gray-800 flex-col h-screen shrink-0 relative z-30">
           <div className="p-6 border-b border-gray-800">
              <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em] mb-1">Configuration</h3>
@@ -1017,6 +1018,7 @@ const App: React.FC = () => {
           
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
              
+             {/* Refinement Section */}
              <div className="space-y-2">
                <div className="flex items-center gap-2 mb-4">
                   <Sliders size={14} className="text-[#F6B45A]" />
@@ -1067,12 +1069,15 @@ const App: React.FC = () => {
           </div>
       </aside>
 
+      {/* Color Flyout Panel */}
       {isColorPanelOpen && (
          <>
+            {/* Backdrop */}
             <div 
                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" 
                onClick={() => setIsColorPanelOpen(false)}
             />
+            {/* Panel */}
             <div className="fixed md:absolute top-auto bottom-0 md:top-0 left-0 md:left-32 w-full md:w-64 h-auto md:h-screen bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-left-4 duration-300">
                <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-2">
@@ -1116,6 +1121,7 @@ const App: React.FC = () => {
          </>
       )}
       
+       {/* Refine Flyout Panel (Mobile Only - Desktop is separate right panel) */}
        {isRefinePanelOpen && (
          <>
             <div 
@@ -1158,6 +1164,7 @@ const App: React.FC = () => {
          </>
       )}
 
+      {/* Modals */}
       <Pricing 
         isOpen={showPricing} 
         onClose={() => setShowPricing(false)} 
@@ -1171,6 +1178,7 @@ const App: React.FC = () => {
         userSubscriptionStatus={subscription?.status || 'none'}
       />
 
+      {/* Lightbox Preview */}
       {previewImage && (
         <div 
             className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300"
