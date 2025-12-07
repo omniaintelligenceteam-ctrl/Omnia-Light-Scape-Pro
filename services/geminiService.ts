@@ -35,8 +35,8 @@ export const generateLightingMockup = async (
 ): Promise<string> => {
   try {
     // Ensure we have a key before proceeding
-    const apiKey = process.env.API_KEY;
-    if (!apiKey && (!window.aistudio || !await window.aistudio.hasSelectedApiKey())) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey && !(window.aistudio && await window.aistudio.hasSelectedApiKey())) {
         throw new Error("API_KEY_MISSING");
     }
 
