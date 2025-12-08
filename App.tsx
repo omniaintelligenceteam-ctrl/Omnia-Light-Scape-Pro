@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toggle } from './components/Toggle';
@@ -9,6 +10,7 @@ import { Quotes } from './components/Quotes';
 import { Pricing } from './components/Pricing';
 import { Paywall } from './components/Paywall';
 import { SettingsPage } from './components/SettingsPage';
+import { Chatbot } from './components/Chatbot';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS } from './constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem } from './types';
 import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
@@ -44,14 +46,12 @@ const App: React.FC = () => {
   const [markers, setMarkers] = useState<LightMarker[]>([]);
   const [activeTool, setActiveTool] = useState<'none' | 'up' | 'path' | 'gutter'>('none');
   const [aimingMarkerId, setAimingMarkerId] = useState<string | null>(null);
-  const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null); // New drag state
-  const dragStartRef = useRef<{x: number, y: number} | null>(null); // To detect drag vs click
   
   // Feedback State
   const [critiques, setCritiques] = useState<string[]>([]);
   const [feedbackStatus, setFeedbackStatus] = useState<'none' | 'liked' | 'disliked'>('none');
   const [currentCritiqueInput, setCurrentCritiqueInput] = useState("");
-
+  
   // UI State for Panels
   const [isLightingPanelOpen, setIsLightingPanelOpen] = useState(false);
   const [isQuickPromptsOpen, setIsQuickPromptsOpen] = useState(false);
@@ -62,6 +62,10 @@ const App: React.FC = () => {
   const inputImageContainerRef = useRef<HTMLDivElement>(null);
   const resultImageContainerRef = useRef<HTMLDivElement>(null);
 
+  // Dragging State
+  const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null);
+  const dragStartPos = useRef<{x: number, y: number} | null>(null);
+
   const [settings, setSettings] = useState<AppSettings>({
     darkSkyMode: true,
     preserveNonLit: true,
@@ -70,6 +74,7 @@ const App: React.FC = () => {
     textureRealism: 80,
     shadowContrast: 60,
     ambientLight: 20,
+    ultraResolution: true,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -439,165 +444,55 @@ const App: React.FC = () => {
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
     
-    // If clicking on result
     if (ref === resultImageContainerRef && generatedImage) {
-        // If placing tool is active on result
         if (activeTool !== 'none') {
+             // Place marker on Result
              const rect = ref.current.getBoundingClientRect();
              const x = ((e.clientX - rect.left) / rect.width) * 100;
              const y = ((e.clientY - rect.top) / rect.height) * 100;
+             
              const newMarker: LightMarker = {
-              id: Date.now().toString(),
-              x,
-              y,
-              type: activeTool,
-              angle: activeTool === 'path' ? 90 : 270,
-              throw: 15
-            };
-            setMarkers([...markers, newMarker]);
-            setAimingMarkerId(newMarker.id);
+                id: Date.now().toString(),
+                x, y,
+                type: activeTool,
+                angle: activeTool === 'path' ? 90 : 270,
+                throw: 15
+             };
+             setMarkers(prev => [...prev, newMarker]);
+             setAimingMarkerId(newMarker.id);
         } else {
              setPreviewImage(generatedImage);
         }
         return;
     }
-    
-    // Logic for Input Image
-    if (aimingMarkerId) {
-      setAimingMarkerId(null);
-      return;
-    }
-    if (draggingMarkerId) {
-        // Drag just finished, don't place new dot
-        return;
-    }
-    // If auto-layout is running, prevent clicks
-    if (isAnalyzing) return;
-
-    if (activeTool === 'none') return;
-    const rect = ref.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    let defaultAngle = 270;
-    if (activeTool === 'path') defaultAngle = 90;
-    const newMarker: LightMarker = {
-      id: Date.now().toString(),
-      x,
-      y,
-      type: activeTool,
-      angle: defaultAngle,
-      throw: 15
-    };
-    setMarkers([...markers, newMarker]);
-    setAimingMarkerId(newMarker.id);
   };
 
+  // --- DRAG HANDLERS ---
   const handleMarkerMouseDown = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setDraggingMarkerId(id);
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleContainerMouseUp = (e: React.MouseEvent) => {
-      if (draggingMarkerId) {
-          // Check if it was a click (minimal movement)
-          if (dragStartRef.current) {
-              const dist = Math.sqrt(Math.pow(e.clientX - dragStartRef.current.x, 2) + Math.pow(e.clientY - dragStartRef.current.y, 2));
-              if (dist < 5) {
-                  // It was a click, trigger aim mode logic
-                  setAimingMarkerId(prev => prev === draggingMarkerId ? null : draggingMarkerId);
-              }
-          }
-          setDraggingMarkerId(null);
-          dragStartRef.current = null;
-      }
+     if (view === 'editor' && activeTool !== 'none') {
+        e.stopPropagation();
+        setDraggingMarkerId(id);
+        dragStartPos.current = { x: e.clientX, y: e.clientY };
+     }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
-    if (!ref.current) return;
-    
-    // Drag Logic
-    if (draggingMarkerId) {
-         const rect = ref.current.getBoundingClientRect();
-         const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-         const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
-         setMarkers(prev => prev.map(m => {
-            if (m.id === draggingMarkerId) {
-                 // Constrain to 0-100
-                 return { ...m, x: Math.min(Math.max(mouseX, 0), 100), y: Math.min(Math.max(mouseY, 0), 100) };
-            }
-            return m;
-         }));
-         return;
-    }
-
-    // Aim Logic
-    if (!aimingMarkerId) return;
-    const rect = ref.current.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-    const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
-    setMarkers(prevMarkers => prevMarkers.map(m => {
-      if (m.id === aimingMarkerId) {
-        const deltaX = mouseX - m.x;
-        const deltaY = mouseY - m.y;
-        let angleDeg = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-        if (angleDeg < 0) angleDeg += 360;
-        const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        return {
-          ...m,
-          angle: angleDeg,
-          throw: Math.min(Math.max(dist, 5), 50)
-        };
-      }
-      return m;
-    }));
+     if (!draggingMarkerId || !ref.current) return;
+     
+     const rect = ref.current.getBoundingClientRect();
+     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+     
+     setMarkers(prev => prev.map(m => 
+       m.id === draggingMarkerId ? { ...m, x, y } : m
+     ));
   };
 
-  const handleMarkerRightClick = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setMarkers(markers.filter(m => m.id !== id));
-    if (aimingMarkerId === id) setAimingMarkerId(null);
+  const handleMouseUp = () => {
+     setDraggingMarkerId(null);
+     dragStartPos.current = null;
   };
 
-  const prepareCompositeImage = async (): Promise<string> => {
-    if (!uploadedImage) throw new Error("No image");
-    if (markers.length === 0) return uploadedImage;
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(uploadedImage);
-        ctx.drawImage(img, 0, 0);
-        markers.forEach(marker => {
-          const x = (marker.x / 100) * canvas.width;
-          const y = (marker.y / 100) * canvas.height;
-          const radius = Math.max(2, canvas.width * 0.004); 
-          let color = '#888';
-          switch (marker.type) {
-            case 'up': color = '#FF0000'; break;
-            case 'path': color = '#0000FF'; break;
-            case 'gutter': color = '#FFA500'; break;
-          }
-          // Draw Glowing Dot (No Vector Line)
-          ctx.shadowColor = color;
-          ctx.shadowBlur = 15;
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0; // Reset
-        });
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.src = uploadedImage;
-    });
-  };
 
   const runGeneration = async (mode: 'auto' | 'manual', critiqueList?: string[]) => {
     if (!uploadedImage) return;
@@ -608,13 +503,13 @@ const App: React.FC = () => {
     if (!critiqueList) setFeedbackStatus('none');
     try {
       if (!apiKeyReady) {
+          // If we thought key was ready but it failed previously, error out
           throw new Error("API_KEY_MISSING");
       }
       
       let imageToUse = uploadedImage;
-      if (mode === 'manual' || markers.length > 0) imageToUse = await prepareCompositeImage();
       
-      const markersToPass = (mode === 'manual' || markers.length > 0) ? markers : [];
+      const markersToPass: LightMarker[] = markers; // Pass placed markers
       
       let critiquesToSend = [...critiques];
       if (critiqueList && critiqueList.length > 0) {
@@ -664,31 +559,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleQuickPromptClick = async (label: string) => {
+  const handleQuickPromptClick = (label: string) => {
     if (selectedQuickPromptLabel === label) {
        setSelectedQuickPromptLabel(null);
        return;
     } 
-    
     setSelectedQuickPromptLabel(label);
-    
-    // Auto-Layout Trigger
-    if (uploadedImage) {
-      setIsAnalyzing(true);
-      setError(null);
-      // Wait a small tick to show UI update
-      await new Promise(r => setTimeout(r, 100));
-      
-      const detectedMarkers = await detectFixtureLocations(uploadedImage, label);
-      
-      if (detectedMarkers.length > 0) {
-         setMarkers(detectedMarkers);
-      } else {
-         console.log("No markers detected or API error");
-      }
-      
-      setIsAnalyzing(false);
-    }
   };
 
   if (!user) {
@@ -704,7 +580,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans">
+    <div className="flex flex-col h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans" onMouseUp={handleMouseUp}>
       
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
         <defs>
@@ -730,6 +606,8 @@ const App: React.FC = () => {
         onToggleLightingPanel={toggleLightingPanel}
         onSave={handleSaveProject}
       />
+
+      <Chatbot currentView={view} />
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full pb-16 md:pb-20">
         <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
@@ -827,75 +705,13 @@ const App: React.FC = () => {
                       
                       <div 
                         ref={inputImageContainerRef}
-                        className="relative cursor-crosshair select-none"
-                        onClick={(e) => handleImageClick(e, inputImageContainerRef)}
-                        onMouseMove={(e) => handleMouseMove(e, inputImageContainerRef)}
-                        onMouseUp={handleContainerMouseUp}
+                        className="relative select-none"
                       >
                          <img 
                            src={uploadedImage} 
                            alt="Input" 
                            className="block max-w-full w-auto max-h-[70vh] object-contain"
-                           onDragStart={(e) => e.preventDefault()}
                          />
-                         
-                         {markers.map((marker) => (
-                           <React.Fragment key={marker.id}>
-                              {/* Glowing Dot - No vector line */}
-                              <div 
-                                className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border border-white/80 shadow-[0_0_10px_currentColor] cursor-pointer hover:scale-125 transition-transform z-10"
-                                style={{ 
-                                    left: `${marker.x}%`, 
-                                    top: `${marker.y}%`,
-                                    backgroundColor: getMarkerColor(marker.type),
-                                    color: getMarkerColor(marker.type) 
-                                }}
-                                onMouseDown={(e) => handleMarkerMouseDown(e, marker.id)}
-                                onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
-                              />
-                           </React.Fragment>
-                         ))}
-                         
-                         {isAnalyzing && (
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-50 animate-in fade-in duration-300">
-                                <div className="bg-white px-6 py-4 rounded-xl flex items-center gap-3 shadow-2xl">
-                                    <Loader2 size={20} className="animate-spin text-[#F6B45A]" />
-                                    <span className="text-xs font-bold uppercase tracking-widest text-[#111]">Analyzing Architecture...</span>
-                                </div>
-                            </div>
-                         )}
-                      </div>
-                   </div>
-
-                   {/* Fixture Toolbar for Adding/Moving */}
-                   <div className="w-full max-w-3xl mt-4 flex justify-center hidden md:flex">
-                      <div className="bg-[#111] rounded-xl p-1.5 flex gap-1 shadow-xl border border-gray-800">
-                         <button 
-                            onClick={() => setActiveTool('none')}
-                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'none' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
-                         >
-                            <MousePointer2 size={14} /> Select / Move
-                         </button>
-                         <div className="w-px bg-gray-700 my-1 mx-1"></div>
-                         <button 
-                            onClick={() => setActiveTool('up')}
-                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'up' ? 'bg-[#333] text-[#F6B45A] border border-[#F6B45A]/30' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
-                         >
-                            <ArrowUpFromLine size={14} /> Up Light
-                            {activeTool === 'up' && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] ml-1" />}
-                         </button>
-                         <button 
-                            onClick={() => setActiveTool('path')}
-                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'path' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
-                         >
-                            <CircleDot size={14} /> Path Light
-                         </button>
-                         <button 
-                            onClick={() => setActiveTool('gutter')}
-                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'gutter' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
-                         >
-                            <ChevronsUp size={14} /> Gutter Mount
-                         </button>
                       </div>
                    </div>
 
@@ -941,7 +757,7 @@ const App: React.FC = () => {
                                      onClick={() => handleQuickPromptClick(prompt.label)}
                                      className={`px-3 py-1.5 rounded-full border text-[10px] font-bold transition-colors whitespace-nowrap
                                         ${selectedQuickPromptLabel === prompt.label 
-                                            ? 'bg-[#F6B45A] text-[#111] border-[#F6B45A] shadow-md' 
+                                            ? 'bg-[#F6B45A] text-[#111] border-[#F6B45A] shadow-md font-bold' 
                                             : 'bg-white text-gray-500 border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A]'}
                                      `}
                                    >
@@ -1033,7 +849,8 @@ const App: React.FC = () => {
                       <div 
                          ref={resultImageContainerRef}
                          className="relative cursor-zoom-in"
-                         onClick={(e) => handleImageClick(e, resultImageContainerRef)} 
+                         onClick={(e) => handleImageClick(e, resultImageContainerRef)}
+                         onMouseMove={(e) => handleMouseMove(e, resultImageContainerRef)}
                       >
                          <img 
                            src={generatedImage} 
@@ -1041,19 +858,18 @@ const App: React.FC = () => {
                            className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain transition-transform duration-700 group-hover:scale-[1.01]" 
                          />
                          
-                         {markers.map((marker) => (
+                         {/* Marker Overlay on Result if editing */}
+                         {activeTool !== 'none' && markers.map((marker) => (
                            <React.Fragment key={marker.id}>
-                              {/* Glowing Dot on Result too if placing new markers */}
                               <div 
-                                className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border border-white/80 shadow-[0_0_10px_currentColor] cursor-pointer hover:scale-125 transition-transform z-10"
-                                style={{ 
-                                    left: `${marker.x}%`, 
-                                    top: `${marker.y}%`,
-                                    backgroundColor: getMarkerColor(marker.type),
-                                    color: getMarkerColor(marker.type) 
-                                }}
+                                className="absolute cursor-pointer w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full z-10 hover:scale-150 transition-transform"
                                 onMouseDown={(e) => handleMarkerMouseDown(e, marker.id)}
-                                onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
+                                style={{
+                                  left: `${marker.x}%`,
+                                  top: `${marker.y}%`,
+                                  backgroundColor: getMarkerColor(marker.type),
+                                  boxShadow: `0 0 10px 2px ${getMarkerColor(marker.type)}`
+                                }}
                               />
                            </React.Fragment>
                          ))}
@@ -1080,7 +896,10 @@ const App: React.FC = () => {
                             </button>
                             <div className="w-px h-10 bg-gray-100"></div>
                             <button 
-                              onClick={() => setFeedbackStatus('disliked')}
+                              onClick={() => {
+                                 setFeedbackStatus('disliked');
+                                 setActiveTool('up'); // Auto-activate up tool when fixing
+                              }}
                               className={`flex-1 py-4 rounded-xl flex flex-col items-center gap-2 transition-all duration-300 ${feedbackStatus === 'disliked' ? 'bg-[#111] text-white' : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600'}`}
                             >
                                <ThumbsDown size={20} className={feedbackStatus === 'disliked' ? 'fill-current' : ''} />
@@ -1091,6 +910,28 @@ const App: React.FC = () => {
                          {feedbackStatus === 'disliked' && (
                             <div className="w-full p-6 border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
                                <div className="relative">
+                                  {/* Fixture Toolbar in Feedback Mode */}
+                                  <div className="flex justify-center gap-2 mb-4 bg-black p-2 rounded-xl w-fit mx-auto">
+                                    <button
+                                      onClick={() => setActiveTool('up')}
+                                      className={`p-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'up' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_red]"></div> Up Light
+                                    </button>
+                                    <button
+                                      onClick={() => setActiveTool('path')}
+                                      className={`p-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'path' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_blue]"></div> Path Light
+                                    </button>
+                                    <button
+                                      onClick={() => setActiveTool('gutter')}
+                                      className={`p-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'gutter' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_orange]"></div> Gutter Mount
+                                    </button>
+                                  </div>
+
                                   <textarea 
                                     value={currentCritiqueInput}
                                     onChange={(e) => setCurrentCritiqueInput(e.target.value)}
@@ -1137,7 +978,7 @@ const App: React.FC = () => {
                <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-2">
                      <Sliders size={14} className="text-[#F6B45A]" />
-                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Lighting Controls</span>
+                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Light Options</span>
                   </div>
                   <button onClick={() => setIsLightingPanelOpen(false)} className="md:hidden text-gray-500">
                      <X size={16} />
@@ -1182,6 +1023,11 @@ const App: React.FC = () => {
 
                {/* Refinement Sliders Section */}
                <div className="space-y-6">
+                   <Toggle 
+                      label="Nano Banana Pro (2K)" 
+                      checked={settings.ultraResolution} 
+                      onChange={(checked) => setSettings({...settings, ultraResolution: checked})} 
+                   />
                    <Slider 
                       label="Ambient Light" 
                       value={settings.ambientLight} 
@@ -1206,6 +1052,7 @@ const App: React.FC = () => {
                           textureRealism: 80,
                           shadowContrast: 60,
                           ambientLight: 20,
+                          ultraResolution: true
                         });
                         setSelectedTemp(COLOR_TEMPERATURES[1]);
                     }}

@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
           
           <SidebarItem 
-            label="Lighting" 
+            label="Light Options" 
             isActive={isLightingPanelOpen}
             onClick={onToggleLightingPanel}
           />

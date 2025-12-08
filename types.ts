@@ -1,4 +1,5 @@
 
+
 export interface ColorTemperature {
   id: string;
   kelvin: string;
@@ -25,6 +26,7 @@ export interface AppSettings {
   textureRealism: number;
   shadowContrast: number;
   ambientLight: number; // 0 = Pitch Black, 100 = Daylight
+  ultraResolution: boolean;
 }
 
 export interface GenerationState {
