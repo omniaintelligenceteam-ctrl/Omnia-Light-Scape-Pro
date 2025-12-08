@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { User, UserSettings, Subscription, TrialState, MarkerType } from '../types';
 import { createPortalSession } from '../services/stripeService';
-import { Save, Loader2, CreditCard, Crown, Clock, Building, Lightbulb, Sparkles, ChevronDown, Mail, ShieldCheck } from 'lucide-react';
+import { Save, Loader2, CreditCard, Crown, Clock, Building, Lightbulb, Sparkles, ChevronDown, Mail, ShieldCheck, LogOut } from 'lucide-react';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS } from '../constants';
 
 interface SettingsPageProps {
@@ -11,6 +12,7 @@ interface SettingsPageProps {
   trialState: TrialState | null;
   onSaveSettings: (newSettings: UserSettings) => void;
   onUpgrade: () => void;
+  onLogout: () => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ 
@@ -19,7 +21,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   subscription, 
   trialState, 
   onSaveSettings, 
-  onUpgrade 
+  onUpgrade,
+  onLogout
 }) => {
   const [loading, setLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
@@ -76,7 +79,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       {/* Subtle Ambient Background */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-gray-100/50 to-transparent pointer-events-none" />
 
-      <div className="max-w-6xl mx-auto px-12 py-16 relative z-10">
+      <div className="max-w-6xl mx-auto px-12 py-16 relative z-10 pb-32">
         
         {/* Header */}
         <div className="mb-12">
@@ -187,6 +190,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} className="group-hover:text-[#F6B45A] transition-colors" />}
                 Save Changes
               </button>
+            </div>
+            
+            {/* Sign Out Button */}
+            <div className="flex justify-center pt-2 pb-10">
+                <button 
+                  onClick={onLogout}
+                  className="text-gray-400 hover:text-red-500 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors flex items-center gap-2"
+                >
+                  <LogOut size={12} /> Sign Out
+                </button>
             </div>
 
           </div>

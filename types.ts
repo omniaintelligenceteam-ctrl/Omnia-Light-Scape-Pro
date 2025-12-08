@@ -1,3 +1,4 @@
+
 export interface ColorTemperature {
   id: string;
   kelvin: string;
@@ -79,4 +80,31 @@ export interface Project {
   outputImage: string;
   markers: LightMarker[];
   settings: AppSettings;
+}
+
+// --- QUOTING SYSTEM ---
+
+export interface QuoteItem {
+  id: string;
+  description: string; // Acts as the Title / Product Name
+  details?: string;    // Acts as the Long Description / Warranty info
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  type: 'fixture' | 'labor' | 'other';
+}
+
+export interface Quote {
+  id: string;
+  projectId?: string; // Links to a saved design
+  clientName: string;
+  clientAddress: string;
+  date: string;
+  items: QuoteItem[];
+  subtotal: number;
+  taxRate: number; // percentage
+  taxAmount: number;
+  total: number;
+  notes: string;
+  status: 'draft' | 'sent' | 'approved';
 }

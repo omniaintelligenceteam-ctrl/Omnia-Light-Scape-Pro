@@ -1,15 +1,17 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toggle } from './components/Toggle';
 import { Slider } from './components/Slider';
 import { Auth } from './components/Auth';
 import { ProjectGallery } from './components/ProjectGallery';
+import { Quotes } from './components/Quotes';
 import { Pricing } from './components/Pricing';
 import { Paywall } from './components/Paywall';
 import { SettingsPage } from './components/SettingsPage';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS } from './constants';
-import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings } from './types';
-import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
+import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem } from './types';
+import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
 import { checkApiKey, generateLightingMockup, openApiKeySelection } from './services/geminiService';
 import { createCheckoutSession, createPortalSession } from './services/stripeService';
 
@@ -27,7 +29,7 @@ const App: React.FC = () => {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [trialState, setTrialState] = useState<TrialState | null>(null);
-  const [view, setView] = useState<'editor' | 'projects' | 'settings'>('editor');
+  const [view, setView] = useState<'editor' | 'projects' | 'quotes' | 'settings'>('editor');
   const [projects, setProjects] = useState<Project[]>([]);
   const [showPricing, setShowPricing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -40,8 +42,11 @@ const App: React.FC = () => {
   const [selectedTemp, setSelectedTemp] = useState<ColorTemperature>(COLOR_TEMPERATURES[1]); 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [userInstructions, setUserInstructions] = useState<string>(""); 
   
+  // Instructions State
+  const [userInstructions, setUserInstructions] = useState<string>(""); 
+  const [selectedQuickPromptLabel, setSelectedQuickPromptLabel] = useState<string | null>(null);
+
   // Marker State
   const [markers, setMarkers] = useState<LightMarker[]>([]);
   const [activeTool, setActiveTool] = useState<'none' | 'up' | 'path' | 'gutter'>('none');
@@ -54,9 +59,11 @@ const App: React.FC = () => {
   const [selectedFeedbackOptions, setSelectedFeedbackOptions] = useState<string[]>([]);
 
   // UI State for Panels
-  const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
-  const [isRefinePanelOpen, setIsRefinePanelOpen] = useState(false);
+  const [isLightingPanelOpen, setIsLightingPanelOpen] = useState(false);
   const [isQuickPromptsOpen, setIsQuickPromptsOpen] = useState(false);
+  
+  // Quote State
+  const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
 
   const inputImageContainerRef = useRef<HTMLDivElement>(null);
   const resultImageContainerRef = useRef<HTMLDivElement>(null);
@@ -170,10 +177,7 @@ const App: React.FC = () => {
        if (markers.length === 0) setActiveTool(userSettings.default_fixture_type);
        
        if (userSettings.default_design_template) {
-         const quickPrompt = QUICK_PROMPTS.find(p => p.label === userSettings.default_design_template);
-         if (quickPrompt) {
-           setUserInstructions(quickPrompt.text);
-         }
+         setSelectedQuickPromptLabel(userSettings.default_design_template);
        }
     }
   }, [userSettings]);
@@ -196,6 +200,129 @@ const App: React.FC = () => {
       setProjects(userProjects);
     }
   }, [user]);
+
+  // --- QUOTE GENERATION LOGIC ---
+  const generateQuoteFromContext = () => {
+    // 1. Parse Markers
+    let upCount = markers.filter(m => m.type === 'up').length;
+    let pathCount = markers.filter(m => m.type === 'path').length;
+    let gutterCount = markers.filter(m => m.type === 'gutter').length;
+
+    // 2. Parse User Instructions (Architect Notes) for numbers if markers are empty/low
+    if (upCount === 0 && pathCount === 0 && gutterCount === 0 && userInstructions) {
+       const text = userInstructions.toLowerCase();
+       
+       const upMatch = text.match(/(\d+)\s*(?:up\s?light|uplight)/);
+       if (upMatch) upCount = parseInt(upMatch[1]);
+       
+       const pathMatch = text.match(/(\d+)\s*(?:path\s?light|pathlight)/);
+       if (pathMatch) pathCount = parseInt(pathMatch[1]);
+       
+       const gutterMatch = text.match(/(\d+)\s*(?:gutter\s?mount|gutterlight)/);
+       if (gutterMatch) gutterCount = parseInt(gutterMatch[1]);
+    }
+
+    const items: QuoteItem[] = [];
+    
+    if (upCount > 0) {
+       items.push({
+          id: Date.now().toString() + 'up', 
+          description: 'Solid Cast Brass Up Light: COMPLETELY INSTALLED PRICE', 
+          details: 'Color: Light Bronze OR Gun Metal Black\nLIFETIME product warranty on the fixture\n1 Year product warranty on LED Bulb: Rated for 30,000 hours\nLabor, LED Bulb, Wire, Waterproof Wire Nuts, Etc ALL included in the fixture price.',
+          quantity: upCount, 
+          unitPrice: 175.00, 
+          total: upCount * 175.00, 
+          type: 'fixture'
+       });
+    }
+    if (gutterCount > 0) {
+       items.push({
+          id: Date.now().toString() + 'gutter', 
+          description: 'Solid Cast Brass Up Light - Gutter Mount: COMPLETELY INSTALLED PRICE', 
+          details: 'Color: Light Bronze OR Gun Metal Black\nLIFETIME product warranty on the fixture\n1 Year product warranty on LED Bulb: Rated for 30,000 hours\nLabor, LED Bulb, Wire, Waterproof Wire Nuts, Etc ALL included in the fixture price.',
+          quantity: gutterCount, 
+          unitPrice: 185.00, 
+          total: gutterCount * 185.00, 
+          type: 'fixture'
+       });
+    }
+    if (pathCount > 0) {
+       items.push({
+          id: Date.now().toString() + 'path', 
+          description: 'Cast Brass - Modern Path Light: COMPLETELY INSTALLED PRICE', 
+          details: 'Color: Light Bronze OR Gun Metal Black\nLIFETIME warranty on the fixture\nLabor, LED Bulb, Wire, Waterproof Wire Nuts, Etc. Included in the fixture price.',
+          quantity: pathCount, 
+          unitPrice: 210.00, 
+          total: pathCount * 210.00, 
+          type: 'fixture'
+       });
+    }
+    
+    // Auto-add Transformer if any fixtures are present
+    if (items.length > 0) {
+        items.push({
+            id: Date.now().toString() + 'trans',
+            description: 'Professional Low Voltage Transformer (300W)',
+            details: 'Stainless Steel Case\nLifetime Warranty\nPhoto Cell / Timer included\nInstalled with dedicated circuit connection.',
+            quantity: 1,
+            unitPrice: 350.00,
+            total: 350.00,
+            type: 'fixture'
+        });
+    } else {
+       // Fallback if nothing detected
+       items.push({ 
+           id: '0', 
+           description: 'Lighting Consultation & Design', 
+           details: 'On-site consultation and virtual mockup creation.',
+           quantity: 1, 
+           unitPrice: 150.00, 
+           total: 150.00, 
+           type: 'labor' 
+       });
+    }
+
+    const subtotal = items.reduce((acc, i) => acc + i.total, 0);
+    const tax = subtotal * 0.07;
+
+    const newQuote: Quote = {
+        id: Date.now().toString(),
+        clientName: '',
+        clientAddress: '',
+        date: new Date().toLocaleDateString(),
+        items: items,
+        subtotal: subtotal,
+        taxRate: 7,
+        taxAmount: tax,
+        total: subtotal + tax,
+        notes: "Thank you for your business. Quote valid for 30 days.",
+        status: 'draft'
+    };
+    
+    setActiveQuote(newQuote);
+  };
+
+  // NAVIGATION & PANEL LOGIC
+  const handleNavigate = (newView: 'editor' | 'projects' | 'quotes' | 'settings') => {
+    setIsLightingPanelOpen(false);
+    
+    if (newView === 'quotes') {
+       // Auto-generate a draft quote if coming from editor
+       // This ensures the latest context (markers/notes) is used
+       if (view === 'editor') {
+          generateQuoteFromContext();
+       }
+    }
+    
+    setView(newView);
+  };
+
+  const toggleLightingPanel = () => {
+    if (!isLightingPanelOpen) {
+        if (view !== 'editor') setView('editor');
+    }
+    setIsLightingPanelOpen(!isLightingPanelOpen);
+  };
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -301,6 +428,11 @@ const App: React.FC = () => {
       setApiKeyReady(true);
     } catch (e) {
       console.error("Failed to select key", e);
+      // Fallback check if env var was set
+      if (process.env.API_KEY) {
+          setApiKeyReady(true);
+          return;
+      }
       setError("Failed to select API key. Please try again.");
     }
   };
@@ -321,13 +453,12 @@ const App: React.FC = () => {
           setActiveTool('up');
           setAimingMarkerId(null);
           
-          // Re-apply default template on new upload if set
           if (userSettings?.default_design_template) {
-             const quickPrompt = QUICK_PROMPTS.find(p => p.label === userSettings.default_design_template);
-             if (quickPrompt) setUserInstructions(quickPrompt.text);
+             setSelectedQuickPromptLabel(userSettings.default_design_template);
           } else {
-             setUserInstructions("");
+             setSelectedQuickPromptLabel(null);
           }
+          setUserInstructions("");
         }
       };
       reader.readAsDataURL(file);
@@ -337,7 +468,6 @@ const App: React.FC = () => {
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
     
-    // Preview Logic for Generated Image in Feedback Mode
     if (ref === resultImageContainerRef && generatedImage && activeTool === 'none') {
         setPreviewImage(generatedImage);
         return;
@@ -453,8 +583,6 @@ const App: React.FC = () => {
     try {
       if (!apiKeyReady) await handleKeySelection();
       let imageToUse = uploadedImage;
-      // If we are in feedback mode and added markers, we need to bake them into the image
-      // But we should use the ORIGINAL uploaded image as base, not the generated one
       if (mode === 'manual' || markers.length > 0) imageToUse = await prepareCompositeImage();
       
       const markersToPass = (mode === 'manual' || markers.length > 0) ? markers : [];
@@ -465,7 +593,20 @@ const App: React.FC = () => {
         setCritiques(critiquesToSend);
       }
       
-      const result = await generateLightingMockup(imageToUse, selectedTemp, settings, markersToPass, critiquesToSend, userInstructions);
+      let combinedInstructions = "";
+      
+      if (selectedQuickPromptLabel) {
+         const prompt = QUICK_PROMPTS.find(p => p.label === selectedQuickPromptLabel);
+         if (prompt) {
+            combinedInstructions += `DESIGN STYLE: ${prompt.label}\n${prompt.text}\n\n`;
+         }
+      }
+      
+      if (userInstructions.trim()) {
+         combinedInstructions += `ADDITIONAL ARCHITECT NOTES:\n${userInstructions}`;
+      }
+
+      const result = await generateLightingMockup(imageToUse, selectedTemp, settings, markersToPass, critiquesToSend, combinedInstructions);
       setGeneratedImage(result);
       if (critiqueList) {
         setFeedbackStatus('none'); 
@@ -494,16 +635,23 @@ const App: React.FC = () => {
     }
 
     if (combinedCritique.length > 0 || markers.length > 0) {
-        // Trigger regeneration immediately with new feedback OR new markers
         runGeneration('manual', combinedCritique);
     }
+  };
+
+  const handleQuickPromptClick = (label: string) => {
+    if (selectedQuickPromptLabel === label) {
+       setSelectedQuickPromptLabel(null);
+    } else {
+       setSelectedQuickPromptLabel(label);
+    }
+    setIsQuickPromptsOpen(false);
   };
 
   if (!user) {
     return <Auth onLogin={handleLogin} />;
   }
 
-  // Define marker colors for UI
   const getMarkerColor = (type: MarkerType) => {
     switch (type) {
         case 'up': return '#FF0000';
@@ -513,9 +661,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans">
+    <div className="flex flex-col h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans">
       
-      {/* SVG Definitions for Arrows */}
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
         <defs>
           <marker id="arrowhead-up" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -529,37 +676,35 @@ const App: React.FC = () => {
           </marker>
         </defs>
       </svg>
-
+      
       <Sidebar 
         activeView={view} 
-        onNavigate={setView} 
+        onNavigate={handleNavigate} 
         user={user} 
         subscription={subscription}
-        onLogout={handleLogout}
         onOpenPricing={() => setShowPricing(true)}
-        isColorPanelOpen={isColorPanelOpen}
-        onToggleColorPanel={() => setIsColorPanelOpen(!isColorPanelOpen)}
-        isRefinePanelOpen={isRefinePanelOpen}
-        onToggleRefinePanel={() => setIsRefinePanelOpen(!isRefinePanelOpen)}
+        isLightingPanelOpen={isLightingPanelOpen}
+        onToggleLightingPanel={toggleLightingPanel}
         onSave={handleSaveProject}
       />
-      
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative overflow-hidden w-full">
-        {/* Header */}
-        <header className="px-6 py-2 md:py-4 md:px-10 flex items-center md:items-end justify-between md:justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
-          <div className="flex flex-col md:block w-full md:w-auto text-left md:text-left">
-            <h1 className="text-2xl md:text-3xl font-serif italic tracking-tight flex items-center gap-2">
+
+      <main className="flex-1 flex flex-col relative overflow-hidden w-full pb-16 md:pb-20">
+        <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
+          <div className="flex flex-col w-full md:w-auto text-left">
+            <h1 className="text-2xl md:text-3xl font-serif italic tracking-tight flex items-center justify-start gap-2">
               <span className="font-bold text-[#F6B45A] not-italic">Omnia's</span> Light Scape PRO
             </h1>
-            <h2 className="hidden md:block text-[10px] md:text-xs text-gray-400 font-medium tracking-[0.2em] uppercase mt-1">
-              DAYTIME PHOTO TO LIGHTING MOCK UP IN SECONDS!!!
-            </h2>
           </div>
+          
+          <button 
+              onClick={() => setShowPricing(true)}
+              className="bg-[#F6B45A] text-[#111] px-5 py-2 rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-transform shadow-lg shadow-[#F6B45A]/20"
+          >
+              Upgrade
+          </button>
         </header>
 
-        {/* Views */}
-        <div className="flex-1 overflow-y-auto relative bg-[#FDFCFB] pb-24 md:pb-0">
+        <div className="flex-1 overflow-y-auto relative bg-[#FDFCFB]">
           
           {view === 'projects' && (
             <ProjectGallery 
@@ -567,6 +712,15 @@ const App: React.FC = () => {
                 onSelectProject={handleLoadProject} 
                 onDeleteProject={handleDeleteProject}
             />
+          )}
+
+          {view === 'quotes' && (
+             <Quotes 
+               activeQuote={activeQuote}
+               userSettings={userSettings}
+               onUpdateQuote={setActiveQuote}
+               onSaveQuote={() => { alert("Quote Saved!"); }}
+             />
           )}
 
           {view === 'settings' && (
@@ -577,6 +731,7 @@ const App: React.FC = () => {
                 trialState={trialState}
                 onSaveSettings={handleSaveUserSettings}
                 onUpgrade={() => setShowPricing(true)}
+                onLogout={handleLogout}
              />
           )}
 
@@ -584,7 +739,6 @@ const App: React.FC = () => {
             <div className="h-full flex flex-col items-center p-4 md:p-8 max-w-7xl mx-auto w-full">
               
               {!uploadedImage ? (
-                // UPLOAD STATE
                 <div className="flex-1 w-full flex flex-col items-center justify-center">
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -608,10 +762,8 @@ const App: React.FC = () => {
                   </p>
                 </div>
               ) : !generatedImage ? (
-                // DESIGN MODE
                 <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
                    
-                   {/* Canvas HUD */}
                    <div className="w-full max-w-7xl flex justify-between items-center mb-4 px-2">
                       <div className="flex items-center gap-3">
                          <span className="bg-[#111] text-[#F6B45A] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg">
@@ -628,10 +780,8 @@ const App: React.FC = () => {
                       </button>
                    </div>
 
-                   {/* Main Canvas */}
                    <div className="relative w-fit mx-auto shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] rounded-[20px] overflow-hidden bg-black border border-gray-100 group">
                       
-                      {/* Interactive Image Container */}
                       <div 
                         ref={inputImageContainerRef}
                         className="relative cursor-crosshair select-none"
@@ -641,13 +791,11 @@ const App: React.FC = () => {
                          <img 
                            src={uploadedImage} 
                            alt="Input" 
-                           className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain"
+                           className="block max-w-full w-auto max-h-[70vh] object-contain"
                          />
                          
-                         {/* Markers Overlay */}
                          {markers.map((marker) => (
                            <React.Fragment key={marker.id}>
-                              {/* Vector Line */}
                               <div 
                                 className="absolute pointer-events-none origin-left opacity-90"
                                 style={{
@@ -659,11 +807,8 @@ const App: React.FC = () => {
                                   transform: `rotate(${marker.angle}deg)`,
                                 }}
                               >
-                                 {/* Arrowhead via CSS/SVG marker logic requires SVG wrapper, simplified here with border trick or pure CSS */}
-                                 {/* Using SVG Overlay for correct Arrowheads */}
                               </div>
                               
-                              {/* Dot */}
                               <div 
                                 className="absolute w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full border border-white/50 shadow-sm cursor-pointer hover:scale-125 transition-transform z-10"
                                 style={{ 
@@ -676,48 +821,10 @@ const App: React.FC = () => {
                               />
                            </React.Fragment>
                          ))}
-
-                         {/* SVG Layer for Arrowheads */}
-                         <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                            {markers.map(marker => {
-                               // Convert percentage to coordinate for SVG is tricky without resizing
-                               // Simple CSS rotation above is easier, but arrowheads need SVG
-                               return null; 
-                            })}
-                         </svg>
                       </div>
-
                    </div>
 
-                   {/* Design Cockpit */}
-                   <div className="w-full max-w-4xl mt-6 space-y-6">
-                      
-                      {/* Fixture Toolbar */}
-                      <div className="bg-[#111] rounded-xl p-2 flex items-center justify-center gap-2 md:gap-4 shadow-xl shadow-black/10 overflow-x-auto hidden md:flex">
-                         {[
-                           { id: 'none', label: 'Select / Move', icon: MousePointer2 },
-                           { id: 'up', label: 'Up Light', icon: ArrowUpFromLine },
-                           { id: 'path', label: 'Path Light', icon: CircleDot },
-                           { id: 'gutter', label: 'Gutter Mount', icon: ChevronsUp },
-                         ].map((tool) => (
-                           <button
-                             key={tool.id}
-                             onClick={() => setActiveTool(tool.id as any)}
-                             className={`
-                               flex items-center gap-2 px-4 py-3 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap
-                               ${activeTool === tool.id 
-                                 ? 'bg-[#1F1F1F] text-[#F6B45A] border border-[#F6B45A]/30 shadow-[0_0_15px_-3px_rgba(246,180,90,0.3)]' 
-                                 : 'text-gray-500 hover:text-white hover:bg-white/5 border border-transparent'}
-                             `}
-                           >
-                              <tool.icon size={14} />
-                              {tool.label}
-                              {activeTool === tool.id && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] ml-2 animate-pulse" />}
-                           </button>
-                         ))}
-                      </div>
-
-                      {/* Architect Notes */}
+                   <div className="w-full max-w-4xl mt-6 space-y-6 pb-8">
                       <div className="space-y-4">
                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Architect Notes</p>
                          <textarea
@@ -727,7 +834,6 @@ const App: React.FC = () => {
                             className="w-full h-24 bg-white border border-gray-200 rounded-xl p-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] resize-none shadow-sm transition-all hover:border-gray-300"
                          />
                          
-                         {/* Quick Prompts */}
                          <div className="space-y-2">
                            <div className="flex items-center gap-2 md:hidden" onClick={() => setIsQuickPromptsOpen(!isQuickPromptsOpen)}>
                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quick Prompts</span>
@@ -740,11 +846,12 @@ const App: React.FC = () => {
                                 {QUICK_PROMPTS.slice(0, 4).map((prompt) => (
                                    <button
                                      key={prompt.label}
-                                     onClick={() => {
-                                        setUserInstructions(prompt.text);
-                                        setIsQuickPromptsOpen(false); // Close on mobile selection
-                                     }}
-                                     className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-colors whitespace-nowrap"
+                                     onClick={() => handleQuickPromptClick(prompt.label)}
+                                     className={`px-3 py-1.5 rounded-full border text-[10px] font-bold transition-colors whitespace-nowrap
+                                        ${selectedQuickPromptLabel === prompt.label 
+                                            ? 'bg-[#F6B45A] text-[#111] border-[#F6B45A] shadow-md' 
+                                            : 'bg-white text-gray-500 border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A]'}
+                                     `}
                                    >
                                      {prompt.label}
                                    </button>
@@ -754,11 +861,12 @@ const App: React.FC = () => {
                                 {QUICK_PROMPTS.slice(4).map((prompt) => (
                                    <button
                                      key={prompt.label}
-                                     onClick={() => {
-                                        setUserInstructions(prompt.text);
-                                        setIsQuickPromptsOpen(false); // Close on mobile selection
-                                     }}
-                                     className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-colors whitespace-nowrap"
+                                     onClick={() => handleQuickPromptClick(prompt.label)}
+                                     className={`px-3 py-1.5 rounded-full border text-[10px] font-medium transition-colors whitespace-nowrap
+                                        ${selectedQuickPromptLabel === prompt.label 
+                                            ? 'bg-[#F6B45A] text-[#111] border-[#F6B45A] shadow-md font-bold' 
+                                            : 'bg-white text-gray-500 border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A]'}
+                                     `}
                                    >
                                      {prompt.label}
                                    </button>
@@ -768,7 +876,6 @@ const App: React.FC = () => {
                          </div>
                       </div>
 
-                      {/* Generate Actions */}
                       <div className="grid grid-cols-12 gap-4">
                         <button
                           onClick={() => runGeneration('auto')}
@@ -805,8 +912,7 @@ const App: React.FC = () => {
                    </div>
                 </div>
               ) : (
-                // RESULT MODE
-                <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
+                <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700 pb-12">
                    
                    <div className="w-full max-w-7xl flex justify-between items-center mb-6">
                       <button 
@@ -817,7 +923,12 @@ const App: React.FC = () => {
                       </button>
                       
                       <div className="flex gap-4">
-                         {/* Mobile Floating Save Button Logic handled separately */}
+                         <button 
+                            onClick={() => handleNavigate('quotes')}
+                            className="bg-white border border-gray-200 text-[#111] px-5 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest hover:border-[#F6B45A] hover:text-[#F6B45A] transition-all flex items-center gap-2 shadow-sm"
+                         >
+                            <QuoteIcon size={14} /> Generate Quote
+                         </button>
                          <button 
                            className="hidden md:flex bg-white text-[#111] px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest border border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A] transition-all items-center gap-2 shadow-sm"
                            onClick={handleSaveProject}
@@ -834,17 +945,14 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
-                   {/* Generated Image Container */}
                    <div className="relative w-fit mx-auto shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] rounded-[28px] overflow-hidden bg-black group">
                       
-                      {/* Brand Tag */}
                       <div className="absolute top-6 right-6 z-20">
                          <span className="bg-black/80 backdrop-blur-md text-[#F6B45A] border border-[#F6B45A]/20 px-4 py-1.5 rounded-full text-[10px] md:text-xs font-serif font-bold tracking-wider shadow-xl">
-                           <span className="text-white">Omnia's</span> Light Scape PRO
+                           <span className="text-white font-black text-sm md:text-base">Omnia's</span> Light Scape PRO
                          </span>
                       </div>
                       
-                      {/* Image */}
                       <div 
                          ref={resultImageContainerRef}
                          className="relative cursor-zoom-in"
@@ -855,47 +963,8 @@ const App: React.FC = () => {
                            alt="Generated Mockup" 
                            className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain transition-transform duration-700 group-hover:scale-[1.01]" 
                          />
-                         
-                         {/* Interactive Markers on Result (Only visible when tool is active for feedback) */}
-                         {feedbackStatus === 'disliked' && activeTool !== 'none' && (
-                             <div 
-                                className="absolute inset-0 cursor-crosshair z-30"
-                                onClick={(e) => {
-                                   e.stopPropagation(); // Prevent lightbox
-                                   handleImageClick(e, resultImageContainerRef);
-                                }}
-                                onMouseMove={(e) => handleMouseMove(e, resultImageContainerRef)}
-                             >
-                                 {markers.map((marker) => (
-                                   <React.Fragment key={marker.id}>
-                                      <div 
-                                        className="absolute pointer-events-none origin-left opacity-90"
-                                        style={{
-                                          left: `${marker.x}%`,
-                                          top: `${marker.y}%`,
-                                          width: `${marker.throw}%`,
-                                          height: '2px',
-                                          backgroundColor: getMarkerColor(marker.type),
-                                          transform: `rotate(${marker.angle}deg)`,
-                                        }}
-                                      />
-                                      <div 
-                                        className="absolute w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full border border-white/50 shadow-sm cursor-pointer z-40"
-                                        style={{ 
-                                            left: `${marker.x}%`, 
-                                            top: `${marker.y}%`,
-                                            backgroundColor: getMarkerColor(marker.type)
-                                        }}
-                                        onClick={(e) => handleMarkerLeftClick(e, marker.id)}
-                                        onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
-                                      />
-                                   </React.Fragment>
-                                 ))}
-                             </div>
-                         )}
                       </div>
 
-                      {/* Loading Overlay */}
                       {isGenerating && (
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
                            <Loader2 size={40} className="animate-spin mb-4 text-[#F6B45A]" />
@@ -904,7 +973,6 @@ const App: React.FC = () => {
                       )}
                    </div>
                    
-                   {/* Feedback Section */}
                    <div className="mt-8 w-full max-w-2xl animate-in slide-in-from-bottom-8 duration-700 delay-300">
                       <div className="bg-white rounded-[24px] border border-gray-100 p-1 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] flex flex-col items-center">
                          
@@ -919,63 +987,20 @@ const App: React.FC = () => {
                             <div className="w-px h-10 bg-gray-100"></div>
                             <button 
                               onClick={() => setFeedbackStatus('disliked')}
-                              className={`flex-1 py-4 rounded-xl flex flex-col items-center gap-2 transition-all duration-300 ${feedbackStatus === 'disliked' ? 'bg-red-50 text-red-600 ring-1 ring-red-200' : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600'}`}
+                              className={`flex-1 py-4 rounded-xl flex flex-col items-center gap-2 transition-all duration-300 ${feedbackStatus === 'disliked' ? 'bg-[#111] text-white' : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600'}`}
                             >
                                <ThumbsDown size={20} className={feedbackStatus === 'disliked' ? 'fill-current' : ''} />
-                               <span className="text-[10px] font-bold uppercase tracking-widest">Needs Fix</span>
+                               <span className="text-[10px] font-bold uppercase tracking-widest">Fix</span>
                             </button>
                          </div>
 
                          {feedbackStatus === 'disliked' && (
                             <div className="w-full p-6 border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
-                               <p className="text-xs font-bold text-[#111] mb-4 uppercase tracking-widest text-center">
-                                 Not perfect? Tap the thumbs down and explain what you want to be done and we will fix it!
-                               </p>
-                               
-                               <div className="flex flex-wrap gap-2 justify-center mb-6">
-                                  {FEEDBACK_OPTIONS.map(opt => (
-                                     <button
-                                       key={opt}
-                                       onClick={() => {
-                                          if (selectedFeedbackOptions.includes(opt)) {
-                                             setSelectedFeedbackOptions(prev => prev.filter(o => o !== opt));
-                                          } else {
-                                             setSelectedFeedbackOptions(prev => [...prev, opt]);
-                                          }
-                                       }}
-                                       className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all ${selectedFeedbackOptions.includes(opt) ? 'bg-[#111] text-white border-[#111]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
-                                     >
-                                        {opt}
-                                     </button>
-                                  ))}
-                               </div>
-                               
-                               {/* Fixture Toolbar for Adding/Moving Lights in Feedback Mode */}
-                               <div className="flex justify-center mb-6">
-                                  <div className="bg-[#111] rounded-full p-1.5 flex gap-2 shadow-lg">
-                                     {[
-                                       { id: 'none', label: 'Select', icon: MousePointer2 },
-                                       { id: 'up', label: 'Up', icon: ArrowUpFromLine },
-                                       { id: 'path', label: 'Path', icon: CircleDot },
-                                       { id: 'gutter', label: 'Gutter', icon: ChevronsUp },
-                                     ].map((tool) => (
-                                       <button
-                                         key={tool.id}
-                                         onClick={() => setActiveTool(tool.id as any)}
-                                         className={`p-2 rounded-full transition-all ${activeTool === tool.id ? 'bg-[#F6B45A] text-black' : 'text-gray-400 hover:text-white'}`}
-                                         title={tool.label}
-                                       >
-                                          <tool.icon size={14} />
-                                       </button>
-                                     ))}
-                                  </div>
-                               </div>
-
                                <div className="relative">
                                   <textarea 
                                     value={currentCritiqueInput}
                                     onChange={(e) => setCurrentCritiqueInput(e.target.value)}
-                                    placeholder="Explain Issue..."
+                                    placeholder="Explain what you would like to change..."
                                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-[#111] resize-none h-24"
                                   />
                                   <button 
@@ -997,7 +1022,6 @@ const App: React.FC = () => {
           )}
         </div>
         
-        {/* Floating Save Button (Mobile Only) */}
         {generatedImage && (
             <button 
                 onClick={handleSaveProject}
@@ -1009,135 +1033,60 @@ const App: React.FC = () => {
 
       </main>
 
-      {/* Right Sidebar (Settings Panel - Hidden on Mobile, Fixed on Desktop) */}
-      <aside className="hidden lg:flex w-80 bg-[#111] border-l border-gray-800 flex-col h-screen shrink-0 relative z-30">
-          <div className="p-6 border-b border-gray-800">
-             <h3 className="text-xs font-bold text-[#F6B45A] uppercase tracking-[0.2em] mb-1">Configuration</h3>
-             <p className="text-[10px] text-gray-500 font-medium">Global Rendering Settings</p>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-6 space-y-8">
-             
-             {/* Refinement Section */}
-             <div className="space-y-2">
-               <div className="flex items-center gap-2 mb-4">
-                  <Sliders size={14} className="text-[#F6B45A]" />
-                  <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Refinement</span>
-               </div>
-               
-               <Slider 
-                  label="Ambient Light" 
-                  value={settings.ambientLight} 
-                  onChange={(val) => setSettings({...settings, ambientLight: val})} 
-               />
-               <Slider 
-                  label="Fixture Brightness" 
-                  value={settings.intensity} 
-                  onChange={(val) => setSettings({...settings, intensity: val})} 
-               />
-               <Slider 
-                  label="Texture Realism" 
-                  value={settings.textureRealism} 
-                  onChange={(val) => setSettings({...settings, textureRealism: val})} 
-               />
-               <Slider 
-                  label="Shadow Contrast" 
-                  value={settings.shadowContrast} 
-                  onChange={(val) => setSettings({...settings, shadowContrast: val})} 
-               />
-             </div>
-          </div>
-
-          <div className="p-6 border-t border-gray-800 bg-[#0A0A0A]">
-             <button 
-               className="w-full bg-[#1F1F1F] text-gray-400 hover:text-white py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-gray-800 hover:border-gray-600 transition-all"
-               onClick={() => {
-                  setSettings({
-                    darkSkyMode: true,
-                    preserveNonLit: true,
-                    highRealism: true,
-                    intensity: 80,
-                    textureRealism: 80,
-                    shadowContrast: 60,
-                    ambientLight: 20,
-                  });
-                  setSelectedTemp(COLOR_TEMPERATURES[1]);
-               }}
-             >
-               Reset Defaults
-             </button>
-          </div>
-      </aside>
-
-      {/* Color Flyout Panel */}
-      {isColorPanelOpen && (
-         <>
-            {/* Backdrop */}
-            <div 
-               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" 
-               onClick={() => setIsColorPanelOpen(false)}
-            />
-            {/* Panel */}
-            <div className="fixed md:absolute top-auto bottom-0 md:top-0 left-0 md:left-32 w-full md:w-64 h-auto md:h-screen bg-[#111] border-t md:border-t-0 md:border-r border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-left-4 duration-300">
-               <div className="flex justify-between items-center mb-8">
-                  <div className="flex items-center gap-2">
-                     <Palette size={14} className="text-[#F6B45A]" />
-                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Color Temp</span>
-                  </div>
-                  <button onClick={() => setIsColorPanelOpen(false)} className="md:hidden text-gray-500">
-                     <X size={16} />
-                  </button>
-               </div>
-               
-               <div className="space-y-3">
-                  {COLOR_TEMPERATURES.map(temp => (
-                    <button
-                      key={temp.id}
-                      onClick={() => setSelectedTemp(temp)}
-                      className={`
-                        w-full flex items-center justify-between p-3 rounded-lg border transition-all group
-                        ${selectedTemp.id === temp.id 
-                          ? 'bg-[#1F1F1F] border-[#F6B45A] shadow-[0_0_15px_-5px_rgba(246,180,90,0.3)]' 
-                          : 'bg-[#0A0A0A] border-gray-800 hover:border-gray-600'}
-                      `}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                           className="w-8 h-8 rounded-full shadow-inner border border-white/10"
-                           style={{ backgroundColor: temp.color, boxShadow: `0 0 10px ${temp.color}40` }}
-                        />
-                        <div className="text-left">
-                          <p className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
-                             {temp.kelvin}
-                          </p>
-                          <p className="text-[9px] text-gray-500 uppercase tracking-wide">{temp.description}</p>
-                        </div>
-                      </div>
-                      {selectedTemp.id === temp.id && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] shadow-[0_0_5px_#F6B45A]" />}
-                    </button>
-                  ))}
-               </div>
-            </div>
-         </>
-      )}
-      
-       {/* Refine Flyout Panel (Mobile Only - Desktop is separate right panel) */}
-       {isRefinePanelOpen && (
+      {isLightingPanelOpen && (
          <>
             <div 
-               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" 
-               onClick={() => setIsRefinePanelOpen(false)}
+               className="fixed inset-0 bg-black/50 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none z-40" 
+               onClick={() => setIsLightingPanelOpen(false)}
             />
-            <div className="fixed bottom-0 left-0 w-full bg-[#111] border-t border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 md:hidden rounded-t-3xl">
-               <div className="flex justify-between items-center mb-8">
+            <div className="fixed md:absolute bottom-16 md:bottom-20 left-0 md:left-20 w-full md:w-80 h-auto max-h-[70vh] overflow-y-auto bg-[#111] border-t md:border-t border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 rounded-t-3xl md:rounded-tr-3xl">
+               <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-2">
                      <Sliders size={14} className="text-[#F6B45A]" />
-                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Refinement</span>
+                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Lighting Controls</span>
                   </div>
-                  <button onClick={() => setIsRefinePanelOpen(false)} className="text-gray-500">
+                  <button onClick={() => setIsLightingPanelOpen(false)} className="md:hidden text-gray-500">
                      <X size={16} />
                   </button>
                </div>
+               
+               {/* Color Temperature Section */}
+               <div className="mb-8">
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em] mb-3">Color Temperature</p>
+                  <div className="space-y-3">
+                    {COLOR_TEMPERATURES.map(temp => (
+                      <button
+                        key={temp.id}
+                        onClick={() => setSelectedTemp(temp)}
+                        className={`
+                          w-full flex items-center justify-between p-3 rounded-lg border transition-all group
+                          ${selectedTemp.id === temp.id 
+                            ? 'bg-[#1F1F1F] border-[#F6B45A] shadow-[0_0_15px_-5px_rgba(246,180,90,0.3)]' 
+                            : 'bg-[#0A0A0A] border-gray-800 hover:border-gray-600'}
+                        `}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-8 h-8 rounded-full shadow-inner border border-white/10"
+                            style={{ backgroundColor: temp.color, boxShadow: `0 0 10px ${temp.color}40` }}
+                          />
+                          <div className="text-left">
+                            <p className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
+                              {temp.kelvin}
+                            </p>
+                            <p className="text-[9px] text-gray-500 uppercase tracking-wide">{temp.description}</p>
+                          </div>
+                        </div>
+                        {selectedTemp.id === temp.id && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] shadow-[0_0_5px_#F6B45A]" />}
+                      </button>
+                    ))}
+                  </div>
+               </div>
+
+               {/* Divider */}
+               <div className="h-px bg-gray-800 w-full mb-6" />
+
+               {/* Refinement Sliders Section */}
                <div className="space-y-6">
                    <Slider 
                       label="Ambient Light" 
@@ -1149,6 +1098,7 @@ const App: React.FC = () => {
                       value={settings.intensity} 
                       onChange={(val) => setSettings({...settings, intensity: val})} 
                    />
+                   {/* Hidden sliders kept in state logic but removed from UI per user request
                    <Slider 
                       label="Texture Realism" 
                       value={settings.textureRealism} 
@@ -1159,12 +1109,32 @@ const App: React.FC = () => {
                       value={settings.shadowContrast} 
                       onChange={(val) => setSettings({...settings, shadowContrast: val})} 
                    />
+                   */}
+               </div>
+
+               <div className="pt-8 mt-6 border-t border-gray-800">
+                  <button 
+                    className="w-full bg-[#1F1F1F] text-gray-400 hover:text-white py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-gray-800 hover:border-gray-600 transition-all"
+                    onClick={() => {
+                        setSettings({
+                          darkSkyMode: true,
+                          preserveNonLit: true,
+                          highRealism: true,
+                          intensity: 80,
+                          textureRealism: 80,
+                          shadowContrast: 60,
+                          ambientLight: 20,
+                        });
+                        setSelectedTemp(COLOR_TEMPERATURES[1]);
+                    }}
+                  >
+                    Reset Defaults
+                  </button>
                </div>
             </div>
          </>
       )}
 
-      {/* Modals */}
       <Pricing 
         isOpen={showPricing} 
         onClose={() => setShowPricing(false)} 
@@ -1178,7 +1148,6 @@ const App: React.FC = () => {
         userSubscriptionStatus={subscription?.status || 'none'}
       />
 
-      {/* Lightbox Preview */}
       {previewImage && (
         <div 
             className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300"
