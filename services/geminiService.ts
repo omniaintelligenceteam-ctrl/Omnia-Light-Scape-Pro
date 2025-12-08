@@ -216,18 +216,18 @@ export const generateLightingMockup = async (
       - Are all guide lines erased?
     `;
 
-    const response = await ai.models.generateContent({
-  model: MODEL_NAME,
-  contents: {
-    parts: [
-      { text: prompt },
-      {
-        inlineData: {
-          mimeType: 'image/png',
-          data: imageBase64.split(',')[1],
-        },
-      },
-    ],
+   const model = ai.getGenerativeModel({ model: MODEL_NAME });
+
+const response = await model.generateContent([
+  prompt,
+  {
+    inlineData: {
+      mimeType: 'image/png',
+      data: imageBase64.split(',')[1],
+    },
+  },
+]);
+
   },
   config: {
     imageConfig: {
