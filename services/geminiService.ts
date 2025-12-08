@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
 const MODEL_NAME = 'gemini-3-pro-image-preview';
@@ -41,7 +41,7 @@ export const generateLightingMockup = async (
     }
 
     // Initialize with the environment key if available, otherwise it relies on internal auth (IDX)
-    const ai = new GoogleGenAI({ apiKey: apiKey || 'no-key-needed-for-idx' });
+    const ai = new GoogleGenerativeAI(apiKey || 'no-key-needed-for-idx');
 
     // Ambient Light Logic
     let timeOfDay = "Pitch Black Night (0% ambient)";
@@ -217,25 +217,25 @@ export const generateLightingMockup = async (
     `;
 
     const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: {
-        parts: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: 'image/png',
-              data: imageBase64.split(',')[1],
-            },
-          },
-        ],
+  model: MODEL_NAME,
+  contents: {
+    parts: [
+      { text: prompt },
+      {
+        inlineData: {
+          mimeType: 'image/png',
+          data: imageBase64.split(',')[1],
+        },
       },
-      config: {
-        imageConfig: {
-            aspectRatio: "16:9",
-            imageSize: "2K",
-        }
-      },
-    });
+    ],
+  },
+  config: {
+    imageConfig: {
+        aspectRatio: "16:9",
+        imageSize: "2K",
+    }
+  },
+});
 
     if (response.candidates && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
