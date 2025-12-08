@@ -1,28 +1,18 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
 const MODEL_NAME = 'gemini-3-pro-image-preview';
 
 export const checkApiKey = async (): Promise<boolean> => {
-  // 1. First, check for Environment Variable (Crucial for Vercel/Production)
-  if (process.env.API_KEY && process.env.API_KEY.length > 0 && process.env.API_KEY !== 'undefined') {
-    return true;
-  }
-  
-  // 2. Fallback to Google IDX/AI Studio logic (Development)
-  if (window.aistudio && window.aistudio.hasSelectedApiKey) {
-    return await window.aistudio.hasSelectedApiKey();
-  }
-  
-  return false;
+  // Always return true, assuming the developer has configured the API Key in environment variables.
+  // This bypasses any client-side checks or requests for the key.
+  return true;
 };
 
 export const openApiKeySelection = async (): Promise<void> => {
-  if (window.aistudio && window.aistudio.openSelectKey) {
-    await window.aistudio.openSelectKey();
-  } else {
-    console.warn("AI Studio interface not available. Please set API_KEY in environment variables.");
-  }
+   // No-op. We rely on environment variables.
+   console.warn("API Key selection is disabled. Please configure process.env.API_KEY.");
 };
 
 export const generateLightingMockup = async (
@@ -34,14 +24,14 @@ export const generateLightingMockup = async (
   userInstructions: string = "" 
 ): Promise<string> => {
   try {
-    // Ensure we have a key before proceeding
+    // 1. Get Key from Environment
     const apiKey = process.env.API_KEY;
-    if (!apiKey && (!window.aistudio || !await window.aistudio.hasSelectedApiKey())) {
-        throw new Error("API_KEY_MISSING");
-    }
-
-    // Initialize with the environment key if available, otherwise it relies on internal auth (IDX)
-    const ai = new GoogleGenerativeAI(apiKey || 'no-key-needed-for-idx');
+    
+    // We strictly use the environment variable. If it's missing, the API call below will likely fail,
+    // but we do not prompt the user for it.
+    
+    // Initialize AI Client
+    const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
 
     // Ambient Light Logic
     let timeOfDay = "Pitch Black Night (0% ambient)";
@@ -216,26 +206,26 @@ export const generateLightingMockup = async (
       - Are all guide lines erased?
     `;
 
-   const model = ai.getGenerativeModel({ model: MODEL_NAME });
-
-const response = await model.generateContent([
-  prompt,
-  {
-    inlineData: {
-      mimeType: 'image/png',
-      data: imageBase64.split(',')[1],
-    },
-  },
-]);
-
-  },
-  config: {
-    imageConfig: {
-        aspectRatio: "16:9",
-        imageSize: "2K",
-    }
-  },
-});
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: {
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: 'image/png',
+              data: imageBase64.split(',')[1],
+            },
+          },
+        ],
+      },
+      config: {
+        imageConfig: {
+            aspectRatio: "16:9",
+            imageSize: "2K",
+        }
+      },
+    });
 
     if (response.candidates && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
@@ -249,10 +239,6 @@ const response = await model.generateContent([
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // Explicitly handle 404/403 which are common for key issues
-    if (error.message && (error.message.includes("Requested entity was not found") || error.message.includes("API key not valid"))) {
-       throw new Error("API_KEY_MISSING");
-    }
     throw error;
   }
 };

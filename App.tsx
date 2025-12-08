@@ -12,7 +12,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS } from './constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem } from './types';
 import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
-import { checkApiKey, generateLightingMockup, openApiKeySelection } from './services/geminiService';
+import { generateLightingMockup } from './services/geminiService';
 import { createCheckoutSession, createPortalSession } from './services/stripeService';
 
 const FEEDBACK_OPTIONS = [
@@ -35,7 +35,7 @@ const App: React.FC = () => {
   const [showPaywall, setShowPaywall] = useState(false);
 
   // App State
-  const [apiKeyReady, setApiKeyReady] = useState<boolean>(false);
+  const [apiKeyReady, setApiKeyReady] = useState<boolean>(true); // Default to true, assuming env var is set
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null); // State for lightbox
@@ -83,13 +83,6 @@ const App: React.FC = () => {
   // Initialization & Auth Check
   useEffect(() => {
     const init = async () => {
-      try {
-        const hasKey = await checkApiKey();
-        setApiKeyReady(hasKey);
-      } catch (e) {
-        console.error("Failed to check API key", e);
-      }
-
       const savedUser = localStorage.getItem('lumina_active_user');
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
@@ -422,21 +415,6 @@ const App: React.FC = () => {
     setView('editor');
   };
 
-  const handleKeySelection = async () => {
-    try {
-      await openApiKeySelection();
-      setApiKeyReady(true);
-    } catch (e) {
-      console.error("Failed to select key", e);
-      // Fallback check if env var was set
-      if (process.env.API_KEY) {
-          setApiKeyReady(true);
-          return;
-      }
-      setError("Failed to select API key. Please try again.");
-    }
-  };
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -468,7 +446,8 @@ const App: React.FC = () => {
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
     
-    if (ref === resultImageContainerRef && generatedImage && activeTool === 'none') {
+    if (ref === resultImageContainerRef && generatedImage) {
+        // If clicking on result, open preview by default unless a feedback tool is selected (not implemented in this simplified flow)
         setPreviewImage(generatedImage);
         return;
     }
@@ -581,7 +560,11 @@ const App: React.FC = () => {
     setAimingMarkerId(null);
     if (!critiqueList) setFeedbackStatus('none');
     try {
-      if (!apiKeyReady) await handleKeySelection();
+      if (!apiKeyReady) {
+          // If we thought key was ready but it failed previously, error out
+          throw new Error("API_KEY_MISSING");
+      }
+      
       let imageToUse = uploadedImage;
       if (mode === 'manual' || markers.length > 0) imageToUse = await prepareCompositeImage();
       
@@ -616,7 +599,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       if (err.message === 'API_KEY_MISSING') {
         setApiKeyReady(false);
-        setError("API Key session expired. Please re-select.");
+        setError("API Key missing or invalid. Please check your environment configuration.");
       } else {
         setError("Failed to generate. Try again.");
       }
@@ -1098,18 +1081,6 @@ const App: React.FC = () => {
                       value={settings.intensity} 
                       onChange={(val) => setSettings({...settings, intensity: val})} 
                    />
-                   {/* Hidden sliders kept in state logic but removed from UI per user request
-                   <Slider 
-                      label="Texture Realism" 
-                      value={settings.textureRealism} 
-                      onChange={(val) => setSettings({...settings, textureRealism: val})} 
-                   />
-                   <Slider 
-                      label="Shadow Contrast" 
-                      value={settings.shadowContrast} 
-                      onChange={(val) => setSettings({...settings, shadowContrast: val})} 
-                   />
-                   */}
                </div>
 
                <div className="pt-8 mt-6 border-t border-gray-800">
@@ -1161,20 +1132,6 @@ const App: React.FC = () => {
             <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
                 <X size={32} />
             </button>
-        </div>
-      )}
-
-      {!apiKeyReady && (
-        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-6 text-center text-white backdrop-blur-md">
-           <Cpu size={48} className="mb-6 text-[#F6B45A] animate-pulse" />
-           <h2 className="text-2xl font-bold mb-2 tracking-tight">API Access Required</h2>
-           <p className="text-gray-400 mb-8 max-w-sm">To use Omnia's LightScape Pro, you must verify your session with Google AI Studio.</p>
-           <button 
-             onClick={handleKeySelection}
-             className="bg-[#F6B45A] text-[#111] px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:scale-105 transition-transform shadow-[0_0_20px_rgba(246,180,90,0.4)]"
-           >
-             Connect API Key
-           </button>
         </div>
       )}
 
