@@ -3,16 +3,97 @@ import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
 const MODEL_NAME = 'gemini-3-pro-image-preview';
+// Using the same model for analysis as it has strong vision capabilities
+const ANALYSIS_MODEL_NAME = 'gemini-2.5-flash'; 
 
 export const checkApiKey = async (): Promise<boolean> => {
   // Always return true, assuming the developer has configured the API Key in environment variables.
-  // This bypasses any client-side checks or requests for the key.
   return true;
 };
 
 export const openApiKeySelection = async (): Promise<void> => {
-   // No-op. We rely on environment variables.
    console.warn("API Key selection is disabled. Please configure process.env.API_KEY.");
+};
+
+export const detectFixtureLocations = async (
+  imageBase64: string, 
+  designPromptLabel: string
+): Promise<LightMarker[]> => {
+  try {
+    const apiKey = process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
+
+    let focusTypes = "";
+    if (designPromptLabel.includes("Up Lights Only")) focusTypes = "Only identify locations for ground-mounted 'up' lights at base of columns/walls.";
+    else if (designPromptLabel.includes("Path")) focusTypes = "Only identify locations for 'path' lights along walkways.";
+    else if (designPromptLabel.includes("Gutter")) focusTypes = "Identify 'gutter' lights at roofline and 'up' lights at foundation.";
+    else if (designPromptLabel.includes("Full")) focusTypes = "Identify 'up' lights, 'path' lights, and 'gutter' lights.";
+    else if (designPromptLabel.includes("Christmas") || designPromptLabel.includes("Halloween")) focusTypes = "Identify 'up' lights at foundation and 'gutter' lights at roofline.";
+    else focusTypes = "Identify 'up' lights at architecture base, 'path' lights along walks, 'gutter' lights on roofline.";
+
+    const prompt = `
+      Analyze this image of a house for outdoor lighting placement.
+      ${focusTypes}
+
+      Return a JSON object with a single key "fixtures" containing an array of objects.
+      Each object must have:
+      - "x": number (0-100 percentage of image width)
+      - "y": number (0-100 percentage of image height)
+      - "type": string (one of: 'up', 'path', 'gutter')
+      
+      Rules:
+      - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections).
+      - 'path' lights go along the edges of driveways or walkways (ground level).
+      - 'gutter' lights go on the roofline/fascia/gutter edge (high up).
+      - Be precise. Do not place markers in the sky or on windows.
+      - Limit to 5-15 key fixtures to create a nice design.
+      
+      Response Format:
+      {
+        "fixtures": [
+          { "x": 50.5, "y": 80.2, "type": "up" }
+        ]
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: ANALYSIS_MODEL_NAME,
+      contents: {
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: 'image/png',
+              data: imageBase64.split(',')[1],
+            },
+          },
+        ],
+      },
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!jsonText) return [];
+
+    const parsed = JSON.parse(jsonText);
+    if (!parsed.fixtures || !Array.isArray(parsed.fixtures)) return [];
+
+    // Convert to LightMarkers
+    return parsed.fixtures.map((f: any) => ({
+      id: Date.now().toString() + Math.random().toString(),
+      x: f.x,
+      y: f.y,
+      type: f.type,
+      angle: f.type === 'path' ? 90 : 270, // Default angles: Path=Down, Up/Gutter=Up
+      throw: 15
+    }));
+
+  } catch (error) {
+    console.error("Auto-layout failed:", error);
+    return [];
+  }
 };
 
 export const generateLightingMockup = async (
@@ -24,13 +105,7 @@ export const generateLightingMockup = async (
   userInstructions: string = "" 
 ): Promise<string> => {
   try {
-    // 1. Get Key from Environment
     const apiKey = process.env.API_KEY;
-    
-    // We strictly use the environment variable. If it's missing, the API call below will likely fail,
-    // but we do not prompt the user for it.
-    
-    // Initialize AI Client
     const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
 
     // Ambient Light Logic
@@ -69,6 +144,7 @@ export const generateLightingMockup = async (
         
         if (m.type === 'gutter') {
           return `${index + 1}. GUTTER-MOUNT UPLIGHT at (x: ${xVal}, y: ${yVal}):
+   - EMISSION ORIGIN: The fixture is physically mounted EXACTLY at these coordinates (x:${xVal}, y:${yVal}).
    - HARD RULE: This fixture MUST attach to the FIRST LEVEL gutter/fascia board along the roofline of the first story.
    - BAN: Do not place on second-story dormers, upper eaves, or windows. strictly first-level roofline.
    - TARGETING: Illuminates the architecture/house section DIRECTLY ABOVE the first story gutter.
@@ -80,21 +156,25 @@ export const generateLightingMockup = async (
    - Color temperature: ${colorTemp.kelvin}.`;
         } else if (m.type === 'path') {
           return `${index + 1}. PATH LIGHT at (x: ${xVal}, y: ${yVal}):
-   - Small ground-mounted path light, casting a soft pool of light on the ground around it.
+   - EMISSION ORIGIN: The fixture head/bulb is located EXACTLY at these coordinates (x:${xVal}, y:${yVal}).
+   - The light beam shines DOWNWARD from this exact point, creating a pool on the ground directly below/around it.
+   - Small ground-mounted path light.
    - The fixture structure (post/cap) is visible.
    - Beam direction: Downward.
    - Color temperature: ${colorTemp.kelvin}.`;
         } else if (m.type === 'up') {
           return `${index + 1}. UPLIGHT at (x: ${xVal}, y: ${yVal}):
+   - EMISSION ORIGIN: The physical bulb/lens is located EXACTLY at these coordinates (x:${xVal}, y:${yVal}).
+   - The light beam begins shining UPWARD from this exact point.
    - Ground-mounted uplight.
    - **CONTEXT AWARENESS (CRITICAL)**: Check the object directly behind/above this marker.
      - **CASE A (Architecture)**: If placed on a house foundation/wall, graze the wall/column upward. Uniform brightness up the wall.
      - **CASE B (Tree/Foliage)**: If placed in front of a tree or bush, illuminate the trunk and canopy from below. Highlight branches and foliage realistically with depth.
-   - Aim direction: Upward along the vector line.
+   - Aim direction: Upward.
    - Beam angle: 60 degrees.
    - Brightness: High.
    - Color temperature: ${colorTemp.kelvin}.
-   - PHYSICS RULE: The light MUST start exactly at the dot and travel along the vector line, stopping EXACTLY where the line ends.`;
+   - PHYSICS RULE: The light MUST start exactly at the dot.`;
         }
         return '';
       }).join('\n\n');
@@ -102,7 +182,7 @@ export const generateLightingMockup = async (
       placementInstruction = `
         MODE: STRICT MANUAL COORDINATE PLACEMENT (RENDERING ENGINE ONLY).
         
-        Input image contains visible colored dots and vector lines serving as precise anchors.
+        Input image contains visible colored dots serving as precise anchors.
         
         LIST OF FIXTURES TO RENDER:
         ${fixtureList}
@@ -121,7 +201,7 @@ export const generateLightingMockup = async (
         - Gutter-mounted uplights must stay anchored exactly to the FIRST LEVEL gutter / fascia along the roofline.
         - The only visible artificial light in the scene must come from the fixtures listed above.
         - Everything else remains a natural, realistic night environment.
-        - VISUAL CLEANUP: Remove the colored marker dots and vector lines from the input image. The final result should look like a finished photograph.
+        - VISUAL CLEANUP: Remove the colored marker dots from the input image. The final result should look like a finished photograph.
       `;
     } else {
       placementInstruction = `
@@ -198,7 +278,7 @@ export const generateLightingMockup = async (
       Technical constraints:
       - ${techSpecs.join('\n- ')}
       - Architecture: PRESERVE the exact house structure and materials.
-      - CLEANUP: Remove all marker dots and vector lines from the source image.
+      - CLEANUP: Remove all marker dots from the source image.
       
       FINAL CHECK:
       - Did the light STOP exactly where the vector line ended?

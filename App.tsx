@@ -12,16 +12,8 @@ import { SettingsPage } from './components/SettingsPage';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS } from './constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem } from './types';
 import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
-import { generateLightingMockup } from './services/geminiService';
+import { generateLightingMockup, detectFixtureLocations } from './services/geminiService';
 import { createCheckoutSession, createPortalSession } from './services/stripeService';
-
-const FEEDBACK_OPTIONS = [
-  "Too Bright",
-  "Too Dim",
-  "Remove Fixture",
-  "Move Fixture",
-  "Other Issue"
-];
 
 const App: React.FC = () => {
   // Auth State
@@ -41,6 +33,7 @@ const App: React.FC = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null); // State for lightbox
   const [selectedTemp, setSelectedTemp] = useState<ColorTemperature>(COLOR_TEMPERATURES[1]); 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false); // New state for auto-layout analysis
   const [error, setError] = useState<string | null>(null);
   
   // Instructions State
@@ -51,12 +44,13 @@ const App: React.FC = () => {
   const [markers, setMarkers] = useState<LightMarker[]>([]);
   const [activeTool, setActiveTool] = useState<'none' | 'up' | 'path' | 'gutter'>('none');
   const [aimingMarkerId, setAimingMarkerId] = useState<string | null>(null);
+  const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null); // New drag state
+  const dragStartRef = useRef<{x: number, y: number} | null>(null); // To detect drag vs click
   
   // Feedback State
   const [critiques, setCritiques] = useState<string[]>([]);
   const [feedbackStatus, setFeedbackStatus] = useState<'none' | 'liked' | 'disliked'>('none');
   const [currentCritiqueInput, setCurrentCritiqueInput] = useState("");
-  const [selectedFeedbackOptions, setSelectedFeedbackOptions] = useState<string[]>([]);
 
   // UI State for Panels
   const [isLightingPanelOpen, setIsLightingPanelOpen] = useState(false);
@@ -427,7 +421,6 @@ const App: React.FC = () => {
           setError(null);
           setCritiques([]); 
           setFeedbackStatus('none');
-          setSelectedFeedbackOptions([]);
           setActiveTool('up');
           setAimingMarkerId(null);
           
@@ -446,16 +439,41 @@ const App: React.FC = () => {
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
     if (!uploadedImage || !ref.current) return;
     
+    // If clicking on result
     if (ref === resultImageContainerRef && generatedImage) {
-        // If clicking on result, open preview by default unless a feedback tool is selected (not implemented in this simplified flow)
-        setPreviewImage(generatedImage);
+        // If placing tool is active on result
+        if (activeTool !== 'none') {
+             const rect = ref.current.getBoundingClientRect();
+             const x = ((e.clientX - rect.left) / rect.width) * 100;
+             const y = ((e.clientY - rect.top) / rect.height) * 100;
+             const newMarker: LightMarker = {
+              id: Date.now().toString(),
+              x,
+              y,
+              type: activeTool,
+              angle: activeTool === 'path' ? 90 : 270,
+              throw: 15
+            };
+            setMarkers([...markers, newMarker]);
+            setAimingMarkerId(newMarker.id);
+        } else {
+             setPreviewImage(generatedImage);
+        }
         return;
     }
-
+    
+    // Logic for Input Image
     if (aimingMarkerId) {
       setAimingMarkerId(null);
       return;
     }
+    if (draggingMarkerId) {
+        // Drag just finished, don't place new dot
+        return;
+    }
+    // If auto-layout is running, prevent clicks
+    if (isAnalyzing) return;
+
     if (activeTool === 'none') return;
     const rect = ref.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -474,8 +492,48 @@ const App: React.FC = () => {
     setAimingMarkerId(newMarker.id);
   };
 
+  const handleMarkerMouseDown = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingMarkerId(id);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleContainerMouseUp = (e: React.MouseEvent) => {
+      if (draggingMarkerId) {
+          // Check if it was a click (minimal movement)
+          if (dragStartRef.current) {
+              const dist = Math.sqrt(Math.pow(e.clientX - dragStartRef.current.x, 2) + Math.pow(e.clientY - dragStartRef.current.y, 2));
+              if (dist < 5) {
+                  // It was a click, trigger aim mode logic
+                  setAimingMarkerId(prev => prev === draggingMarkerId ? null : draggingMarkerId);
+              }
+          }
+          setDraggingMarkerId(null);
+          dragStartRef.current = null;
+      }
+  };
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
-    if (!aimingMarkerId || !ref.current) return;
+    if (!ref.current) return;
+    
+    // Drag Logic
+    if (draggingMarkerId) {
+         const rect = ref.current.getBoundingClientRect();
+         const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
+         const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
+         setMarkers(prev => prev.map(m => {
+            if (m.id === draggingMarkerId) {
+                 // Constrain to 0-100
+                 return { ...m, x: Math.min(Math.max(mouseX, 0), 100), y: Math.min(Math.max(mouseY, 0), 100) };
+            }
+            return m;
+         }));
+         return;
+    }
+
+    // Aim Logic
+    if (!aimingMarkerId) return;
     const rect = ref.current.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
     const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
@@ -494,11 +552,6 @@ const App: React.FC = () => {
       }
       return m;
     }));
-  };
-
-  const handleMarkerLeftClick = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setAimingMarkerId(id);
   };
 
   const handleMarkerRightClick = (e: React.MouseEvent, id: string) => {
@@ -531,20 +584,14 @@ const App: React.FC = () => {
             case 'path': color = '#0000FF'; break;
             case 'gutter': color = '#FFA500'; break;
           }
+          // Draw Glowing Dot (No Vector Line)
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 15;
           ctx.fillStyle = color;
-          ctx.strokeStyle = color;
-          ctx.lineWidth = Math.max(3, canvas.width * 0.003);
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, Math.PI * 2);
           ctx.fill();
-          const rads = marker.angle * (Math.PI / 180);
-          const throwPixels = (marker.throw / 100) * canvas.width; 
-          const endX = x + Math.cos(rads) * throwPixels;
-          const endY = y + Math.sin(rads) * throwPixels;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(endX, endY);
-          ctx.stroke();
+          ctx.shadowBlur = 0; // Reset
         });
         resolve(canvas.toDataURL('image/png'));
       };
@@ -561,7 +608,6 @@ const App: React.FC = () => {
     if (!critiqueList) setFeedbackStatus('none');
     try {
       if (!apiKeyReady) {
-          // If we thought key was ready but it failed previously, error out
           throw new Error("API_KEY_MISSING");
       }
       
@@ -594,7 +640,6 @@ const App: React.FC = () => {
       if (critiqueList) {
         setFeedbackStatus('none'); 
         setCurrentCritiqueInput("");
-        setSelectedFeedbackOptions([]);
       }
     } catch (err: any) {
       if (err.message === 'API_KEY_MISSING') {
@@ -610,9 +655,6 @@ const App: React.FC = () => {
 
   const handleSubmitFeedback = () => {
     const combinedCritique: string[] = [];
-    if (selectedFeedbackOptions.length > 0) {
-        combinedCritique.push(`Issues identified: ${selectedFeedbackOptions.join(', ')}.`);
-    }
     if (currentCritiqueInput.trim()) {
         combinedCritique.push(`User specific instruction: "${currentCritiqueInput.trim()}"`);
     }
@@ -622,13 +664,31 @@ const App: React.FC = () => {
     }
   };
 
-  const handleQuickPromptClick = (label: string) => {
+  const handleQuickPromptClick = async (label: string) => {
     if (selectedQuickPromptLabel === label) {
        setSelectedQuickPromptLabel(null);
-    } else {
-       setSelectedQuickPromptLabel(label);
+       return;
+    } 
+    
+    setSelectedQuickPromptLabel(label);
+    
+    // Auto-Layout Trigger
+    if (uploadedImage) {
+      setIsAnalyzing(true);
+      setError(null);
+      // Wait a small tick to show UI update
+      await new Promise(r => setTimeout(r, 100));
+      
+      const detectedMarkers = await detectFixtureLocations(uploadedImage, label);
+      
+      if (detectedMarkers.length > 0) {
+         setMarkers(detectedMarkers);
+      } else {
+         console.log("No markers detected or API error");
+      }
+      
+      setIsAnalyzing(false);
     }
-    setIsQuickPromptsOpen(false);
   };
 
   if (!user) {
@@ -770,40 +830,72 @@ const App: React.FC = () => {
                         className="relative cursor-crosshair select-none"
                         onClick={(e) => handleImageClick(e, inputImageContainerRef)}
                         onMouseMove={(e) => handleMouseMove(e, inputImageContainerRef)}
+                        onMouseUp={handleContainerMouseUp}
                       >
                          <img 
                            src={uploadedImage} 
                            alt="Input" 
                            className="block max-w-full w-auto max-h-[70vh] object-contain"
+                           onDragStart={(e) => e.preventDefault()}
                          />
                          
                          {markers.map((marker) => (
                            <React.Fragment key={marker.id}>
+                              {/* Glowing Dot - No vector line */}
                               <div 
-                                className="absolute pointer-events-none origin-left opacity-90"
-                                style={{
-                                  left: `${marker.x}%`,
-                                  top: `${marker.y}%`,
-                                  width: `${marker.throw}%`,
-                                  height: '2px',
-                                  backgroundColor: getMarkerColor(marker.type),
-                                  transform: `rotate(${marker.angle}deg)`,
-                                }}
-                              >
-                              </div>
-                              
-                              <div 
-                                className="absolute w-2.5 h-2.5 -ml-1.5 -mt-1.5 rounded-full border border-white/50 shadow-sm cursor-pointer hover:scale-125 transition-transform z-10"
+                                className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border border-white/80 shadow-[0_0_10px_currentColor] cursor-pointer hover:scale-125 transition-transform z-10"
                                 style={{ 
                                     left: `${marker.x}%`, 
                                     top: `${marker.y}%`,
-                                    backgroundColor: getMarkerColor(marker.type)
+                                    backgroundColor: getMarkerColor(marker.type),
+                                    color: getMarkerColor(marker.type) 
                                 }}
-                                onClick={(e) => handleMarkerLeftClick(e, marker.id)}
+                                onMouseDown={(e) => handleMarkerMouseDown(e, marker.id)}
                                 onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
                               />
                            </React.Fragment>
                          ))}
+                         
+                         {isAnalyzing && (
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-50 animate-in fade-in duration-300">
+                                <div className="bg-white px-6 py-4 rounded-xl flex items-center gap-3 shadow-2xl">
+                                    <Loader2 size={20} className="animate-spin text-[#F6B45A]" />
+                                    <span className="text-xs font-bold uppercase tracking-widest text-[#111]">Analyzing Architecture...</span>
+                                </div>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+
+                   {/* Fixture Toolbar for Adding/Moving */}
+                   <div className="w-full max-w-3xl mt-4 flex justify-center hidden md:flex">
+                      <div className="bg-[#111] rounded-xl p-1.5 flex gap-1 shadow-xl border border-gray-800">
+                         <button 
+                            onClick={() => setActiveTool('none')}
+                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'none' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
+                         >
+                            <MousePointer2 size={14} /> Select / Move
+                         </button>
+                         <div className="w-px bg-gray-700 my-1 mx-1"></div>
+                         <button 
+                            onClick={() => setActiveTool('up')}
+                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'up' ? 'bg-[#333] text-[#F6B45A] border border-[#F6B45A]/30' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
+                         >
+                            <ArrowUpFromLine size={14} /> Up Light
+                            {activeTool === 'up' && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] ml-1" />}
+                         </button>
+                         <button 
+                            onClick={() => setActiveTool('path')}
+                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'path' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
+                         >
+                            <CircleDot size={14} /> Path Light
+                         </button>
+                         <button 
+                            onClick={() => setActiveTool('gutter')}
+                            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'gutter' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white hover:bg-[#222]'}`}
+                         >
+                            <ChevronsUp size={14} /> Gutter Mount
+                         </button>
                       </div>
                    </div>
 
@@ -829,6 +921,7 @@ const App: React.FC = () => {
                                 {QUICK_PROMPTS.slice(0, 4).map((prompt) => (
                                    <button
                                      key={prompt.label}
+                                     disabled={isAnalyzing}
                                      onClick={() => handleQuickPromptClick(prompt.label)}
                                      className={`px-3 py-1.5 rounded-full border text-[10px] font-bold transition-colors whitespace-nowrap
                                         ${selectedQuickPromptLabel === prompt.label 
@@ -844,10 +937,11 @@ const App: React.FC = () => {
                                 {QUICK_PROMPTS.slice(4).map((prompt) => (
                                    <button
                                      key={prompt.label}
+                                     disabled={isAnalyzing}
                                      onClick={() => handleQuickPromptClick(prompt.label)}
-                                     className={`px-3 py-1.5 rounded-full border text-[10px] font-medium transition-colors whitespace-nowrap
+                                     className={`px-3 py-1.5 rounded-full border text-[10px] font-bold transition-colors whitespace-nowrap
                                         ${selectedQuickPromptLabel === prompt.label 
-                                            ? 'bg-[#F6B45A] text-[#111] border-[#F6B45A] shadow-md font-bold' 
+                                            ? 'bg-[#F6B45A] text-[#111] border-[#F6B45A] shadow-md' 
                                             : 'bg-white text-gray-500 border-gray-200 hover:border-[#F6B45A] hover:text-[#F6B45A]'}
                                      `}
                                    >
@@ -862,7 +956,7 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-12 gap-4">
                         <button
                           onClick={() => runGeneration('auto')}
-                          disabled={isGenerating}
+                          disabled={isGenerating || isAnalyzing}
                           className="col-span-8 bg-[#111] text-white rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-lg hover:shadow-xl hover:scale-[1.01] disabled:opacity-70 disabled:hover:scale-100 group"
                         >
                           {isGenerating ? (
@@ -877,7 +971,7 @@ const App: React.FC = () => {
                         </button>
                         <button
                           onClick={() => runGeneration('manual')}
-                          disabled={isGenerating}
+                          disabled={isGenerating || isAnalyzing}
                           className="col-span-4 bg-white border border-gray-200 text-[#111] rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:border-[#111] hover:bg-gray-50 transition-all shadow-sm"
                         >
                           <span className="flex items-center justify-center gap-2">
@@ -939,13 +1033,30 @@ const App: React.FC = () => {
                       <div 
                          ref={resultImageContainerRef}
                          className="relative cursor-zoom-in"
-                         onClick={() => setPreviewImage(generatedImage)} 
+                         onClick={(e) => handleImageClick(e, resultImageContainerRef)} 
                       >
                          <img 
                            src={generatedImage} 
                            alt="Generated Mockup" 
                            className="block max-w-full w-auto max-h-[50vh] md:max-h-[60vh] object-contain transition-transform duration-700 group-hover:scale-[1.01]" 
                          />
+                         
+                         {markers.map((marker) => (
+                           <React.Fragment key={marker.id}>
+                              {/* Glowing Dot on Result too if placing new markers */}
+                              <div 
+                                className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border border-white/80 shadow-[0_0_10px_currentColor] cursor-pointer hover:scale-125 transition-transform z-10"
+                                style={{ 
+                                    left: `${marker.x}%`, 
+                                    top: `${marker.y}%`,
+                                    backgroundColor: getMarkerColor(marker.type),
+                                    color: getMarkerColor(marker.type) 
+                                }}
+                                onMouseDown={(e) => handleMarkerMouseDown(e, marker.id)}
+                                onContextMenu={(e) => handleMarkerRightClick(e, marker.id)}
+                              />
+                           </React.Fragment>
+                         ))}
                       </div>
 
                       {isGenerating && (
