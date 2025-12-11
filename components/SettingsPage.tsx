@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, UserSettings, Subscription, TrialState, AppSettings, ColorTemperature, FixturePricing } from '../types';
 import { createPortalSession } from '../services/stripeService';
-import { Save, Loader2, CreditCard, Crown, Building, Lightbulb, ChevronDown, Mail, ShieldCheck, LogOut, Sliders, DollarSign, Tag } from 'lucide-react';
+import { Save, Loader2, CreditCard, Crown, Building, Lightbulb, ChevronDown, Mail, ShieldCheck, LogOut, Sliders, DollarSign, Tag, Upload, Trash2 } from 'lucide-react';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from '../constants';
 import { Slider } from './Slider';
 import { Toggle } from './Toggle';
@@ -20,20 +20,22 @@ interface SettingsPageProps {
   setSelectedTemp: (t: ColorTemperature) => void;
 }
 
-const SettingsSection = ({ 
+interface SettingsSectionProps {
+  title: string;
+  subtitle: string;
+  icon: any;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const SettingsSection: React.FC<SettingsSectionProps> = ({ 
   title, 
   subtitle, 
   icon: Icon, 
   isOpen, 
   onToggle, 
   children 
-}: { 
-  title: string; 
-  subtitle: string; 
-  icon: any; 
-  isOpen: boolean; 
-  onToggle: () => void; 
-  children: React.ReactNode; 
 }) => {
   return (
     <div className={`bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 ${isOpen ? 'ring-1 ring-[#F6B45A]/20 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.06)]' : ''}`}>
@@ -85,8 +87,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   
   // Local state for form
   const [companyName, setCompanyName] = useState(userSettings?.company_name || '');
+  const [logoUrl, setLogoUrl] = useState(userSettings?.logo_url || '');
   const [defaultColorTemp, setDefaultColorTemp] = useState(userSettings?.default_color_temp || '3000k');
   const [defaultDesignTemplate, setDefaultDesignTemplate] = useState(userSettings?.default_design_template || '');
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Pricing State
   const [pricingConfig, setPricingConfig] = useState<FixturePricing[]>(() => {
@@ -122,6 +127,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     const updated: UserSettings = {
       ...userSettings,
       company_name: companyName,
+      logo_url: logoUrl,
       default_color_temp: defaultColorTemp,
       default_design_template: defaultDesignTemplate,
       fixture_pricing: pricingConfig
@@ -151,6 +157,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const toggleSection = (id: string) => {
     setActiveSection(prev => prev === id ? null : id);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setLogoUrl(ev.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoUrl('');
+    if (logoInputRef.current) {
+        logoInputRef.current.value = '';
+    }
   };
 
   return (
@@ -265,27 +291,77 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               isOpen={activeSection === 'profile'}
               onToggle={() => toggleSection('profile')}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 flex items-center gap-2">
-                    <Mail size={12} /> Account Email
-                  </label>
-                  <div className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-4 text-sm font-medium text-gray-500 flex items-center justify-between">
-                    {user.email}
-                    <ShieldCheck size={14} className="text-green-500" />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                
+                {/* Logo Upload - Span 4 */}
+                <div className="md:col-span-4 space-y-3">
+                   <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Company Logo</label>
+                   <div className="relative group/logo">
+                      <div 
+                         onClick={() => logoInputRef.current?.click()}
+                         className={`
+                            w-full aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden relative
+                            ${logoUrl ? 'border-gray-200 bg-white' : 'border-gray-200 hover:border-[#F6B45A] hover:bg-[#F6B45A]/5'}
+                         `}
+                      >
+                         {logoUrl ? (
+                            <img src={logoUrl} alt="Company Logo" className="w-full h-full object-contain p-4" />
+                         ) : (
+                            <>
+                               <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center mb-2 group-hover/logo:bg-white group-hover/logo:shadow-md transition-all">
+                                  <Upload size={16} className="text-gray-400 group-hover/logo:text-[#F6B45A]" />
+                               </div>
+                               <span className="text-xs font-bold text-gray-400 group-hover/logo:text-[#F6B45A] transition-colors">Upload</span>
+                            </>
+                         )}
+                      </div>
+                      
+                      <input 
+                         ref={logoInputRef}
+                         type="file" 
+                         accept="image/*" 
+                         className="hidden" 
+                         onChange={handleLogoUpload}
+                      />
+
+                      {logoUrl && (
+                         <button 
+                            onClick={(e) => { e.stopPropagation(); handleRemoveLogo(); }}
+                            className="absolute top-2 right-2 w-6 h-6 bg-red-50 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                         >
+                            <Trash2 size={12} />
+                         </button>
+                      )}
+                   </div>
+                   <p className="text-[10px] text-gray-400 leading-tight">
+                      Visible on PDF quotes. Rec: 400x400px transparent PNG.
+                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Company Name</label>
-                  <input 
-                    type="text" 
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm font-medium text-[#111] placeholder:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] transition-all shadow-sm hover:border-gray-300"
-                    placeholder="e.g. Acme Lighting Design"
-                  />
+                {/* Details - Span 8 */}
+                <div className="md:col-span-8 flex flex-col gap-6">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 flex items-center gap-2">
+                        <Mail size={12} /> Account Email
+                      </label>
+                      <div className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-4 text-sm font-medium text-gray-500 flex items-center justify-between">
+                        {user.email}
+                        <ShieldCheck size={14} className="text-green-500" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Company Name</label>
+                      <input 
+                        type="text" 
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm font-medium text-[#111] placeholder:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] transition-all shadow-sm hover:border-gray-300"
+                        placeholder="e.g. Acme Lighting Design"
+                      />
+                    </div>
                 </div>
+
               </div>
             </SettingsSection>
 

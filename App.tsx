@@ -86,66 +86,10 @@ const App: React.FC = () => {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         loadUserData(parsedUser.id);
-      } else {
-        const now = Date.now();
-        const demoUser: User = { 
-            id: 'demo-user', 
-            name: 'Demo User', 
-            email: 'demo@omnia.com',
-            created_at: now,
-            auth_provider_id: 'demo'
-        };
-        localStorage.setItem('lumina_active_user', JSON.stringify(demoUser));
-        setUser(demoUser);
-        setupDemoData(demoUser);
       }
     };
     init();
   }, []);
-
-  const setupDemoData = (demoUser: User) => {
-    const demoSub: Subscription = {
-      user_id: demoUser.id,
-      status: 'none',
-      plan: undefined,
-      stripe_customer_id: 'cus_demo',
-      stripe_subscription_id: '',
-      current_period_end: 0
-    };
-    
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    const demoTrial: TrialState = {
-        user_id: demoUser.id,
-        has_had_trial_before: false,
-        trial_start: Date.now(),
-        trial_end: Date.now() + sevenDaysMs
-    };
-
-    const demoSettings: UserSettings = {
-        user_id: demoUser.id,
-        company_name: 'Omnia Lighting Demo',
-        default_color_temp: '3000k',
-        default_beam_angle: 60,
-        default_fixture_type: 'up'
-    };
-
-    setSubscription(demoSub);
-    setTrialState(demoTrial);
-    setUserSettings(demoSettings);
-    
-    const allSubs = JSON.parse(localStorage.getItem('lumina_subscriptions') || '[]');
-    if (!allSubs.find((s: Subscription) => s.user_id === demoUser.id)) {
-       localStorage.setItem('lumina_subscriptions', JSON.stringify([...allSubs, demoSub]));
-    }
-    const allTrials = JSON.parse(localStorage.getItem('lumina_trials') || '[]');
-    if (!allTrials.find((t: TrialState) => t.user_id === demoUser.id)) {
-       localStorage.setItem('lumina_trials', JSON.stringify([...allTrials, demoTrial]));
-    }
-    const allSettings = JSON.parse(localStorage.getItem('lumina_user_settings') || '[]');
-    if (!allSettings.find((s: UserSettings) => s.user_id === demoUser.id)) {
-       localStorage.setItem('lumina_user_settings', JSON.stringify([...allSettings, demoSettings]));
-    }
-  };
 
   const loadUserData = (userId: string) => {
       const allSubs = JSON.parse(localStorage.getItem('lumina_subscriptions') || '[]');
@@ -334,13 +278,37 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // 1. Clear Persistence
+    localStorage.removeItem('lumina_active_user');
+
+    // 2. Reset UI & Feature State
     setView('editor');
+    setIsQuickPromptsOpen(false);
+    setShowPricing(false);
+    setShowPaywall(false);
+    setIsChatOpen(false);
+    
     setUploadedImage(null);
     setGeneratedImage(null);
+    setPreviewImage(null);
     setMarkers([]);
-    localStorage.removeItem('lumina_active_user');
-    setUser(null); 
-    window.location.reload(); 
+    setActiveTool('none');
+    setAimingMarkerId(null);
+    setCritiques([]);
+    setFeedbackStatus('none');
+    setCurrentCritiqueInput("");
+    setUserInstructions("");
+    setSelectedQuickPromptLabel(null);
+    setActiveQuote(null);
+    
+    // 3. Reset User Data
+    setProjects([]);
+    setUserSettings(null);
+    setSubscription(null);
+    setTrialState(null);
+
+    // 4. Finally sign out (triggers Auth screen)
+    setUser(null);
   };
 
   const handleSaveUserSettings = (newSettings: UserSettings) => {
@@ -619,11 +587,9 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full pb-16 md:pb-20">
-        <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
+        <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-white text-[#111] shadow-sm z-20 shrink-0 border-b border-gray-100">
           <div className="flex flex-col w-full md:w-auto text-left">
-            <h1 className="text-2xl md:text-3xl font-serif italic tracking-tight flex items-center justify-start gap-2">
-              <span className="font-bold text-[#F6B45A] not-italic">Omnia's</span> Light Scape PRO
-            </h1>
+            <img src="/logo.png" alt="Omnia Light Scape PRO" className="h-12 w-auto object-contain" />
           </div>
           
           <button 

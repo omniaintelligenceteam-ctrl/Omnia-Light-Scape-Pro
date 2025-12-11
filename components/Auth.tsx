@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Loader2, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { ArrowRight, Loader2, Mail, Lock, User as UserIcon, Sparkles } from 'lucide-react';
 import { User, UserSettings, Subscription, TrialState } from '../types';
 
 interface AuthProps {
@@ -44,12 +44,12 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           };
           onLogin(validUser);
         } else {
-          setError("Invalid credentials.");
+          setError("Invalid credentials. Please try again.");
         }
       } else {
         // Register
         if (storedUsers.find((u: any) => u.email === email)) {
-          setError("User already exists.");
+          setError("User already exists with this email.");
           return;
         }
         
@@ -117,103 +117,153 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         };
         onLogin(validUser);
       }
-    }, 1000);
+    }, 1200);
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#F9F9F9] font-sans text-gray-900 p-6">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden flex min-h-[600px]">
-        
-        {/* Left Side - Form */}
-        <div className="flex-1 p-12 flex flex-col justify-center">
-          <div className="mb-10">
-             <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center mb-6">
-                <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+    <div className="min-h-screen w-full flex bg-white font-sans text-[#111] overflow-hidden">
+      
+      {/* Left Side - Form Area */}
+      <div className="w-full lg:w-[45%] xl:w-[40%] flex flex-col justify-center px-8 md:px-16 lg:px-24 xl:px-32 relative z-10 bg-white shadow-[20px_0_60px_-15px_rgba(0,0,0,0.05)]">
+          
+          {/* Brand Logo - Top Left */}
+          <div className="absolute top-10 left-8 md:left-12">
+             <img src="/logo.png" alt="Omnia Light Scape PRO" className="h-20 w-auto object-contain" />
+          </div>
+
+          <div className="max-w-sm w-full mx-auto mt-12 md:mt-0 animate-in fade-in slide-in-from-bottom-8 duration-700">
+             <div className="mb-10">
+                <h1 className="text-4xl md:text-5xl font-serif font-medium mb-4 tracking-tight leading-[1.1]">
+                  {isLogin ? 'Welcome back.' : 'Design starts here.'}
+                </h1>
+                <p className="text-gray-500 font-medium text-sm leading-relaxed">
+                   {isLogin 
+                     ? 'Sign in to access your projects and quotes.' 
+                     : 'Create a professional account to generate AI lighting mockups in seconds.'}
+                </p>
              </div>
-             <h1 className="text-3xl font-bold tracking-tight mb-2">{isLogin ? 'Welcome back.' : 'Create account.'}</h1>
-             <p className="text-gray-400 font-light text-sm">
-               {isLogin ? 'Enter your credentials to access your projects.' : 'Start designing premium outdoor lighting today.'}
-             </p>
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Full Name</label>
-                <div className="relative">
-                  <UserIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all"
-                    placeholder="Jane Doe"
-                  />
+             <form onSubmit={handleSubmit} className="space-y-5">
+                {!isLogin && (
+                  <div className="space-y-1 group">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1 group-focus-within:text-[#F6B45A] transition-colors">Full Name</label>
+                    <div className="relative">
+                      <UserIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#111] transition-colors" />
+                      <input 
+                        type="text" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-transparent transition-all placeholder:text-gray-300"
+                        placeholder="e.g. Jane Doe"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1 group">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1 group-focus-within:text-[#F6B45A] transition-colors">Email Address</label>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#111] transition-colors" />
+                    <input 
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-transparent transition-all placeholder:text-gray-300"
+                      placeholder="name@company.com"
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Email</label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all"
-                  placeholder="name@company.com"
-                />
-              </div>
-            </div>
+                <div className="space-y-1 group">
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#F6B45A] transition-colors">Password</label>
+                    {isLogin && <button type="button" className="text-[10px] font-bold text-gray-400 hover:text-[#111] transition-colors">Forgot?</button>}
+                  </div>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#111] transition-colors" />
+                    <input 
+                      type="password" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-transparent transition-all placeholder:text-gray-300"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password</label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs font-medium animate-in slide-in-from-top-2">
+                    {error}
+                  </div>
+                )}
 
-            {error && <p className="text-red-500 text-xs font-medium">{error}</p>}
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#111] text-white rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-black transition-all hover:scale-[1.01] shadow-xl shadow-black/20 disabled:opacity-70 disabled:hover:scale-100 mt-2"
+                >
+                  {loading ? (
+                    <Loader2 size={16} className="animate-spin text-[#F6B45A]" />
+                  ) : (
+                    <>
+                      {isLogin ? 'Sign In' : 'Create Account'} 
+                      <ArrowRight size={14} className="text-[#F6B45A]" />
+                    </>
+                  )}
+                </button>
+             </form>
 
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-black text-white rounded-xl py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition-all hover:scale-[1.01] mt-4"
-            >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isLogin ? 'Sign In' : 'Create Account'} <ArrowRight size={16} /></>}
-            </button>
-          </form>
+             <div className="mt-8 text-center">
+               <div className="relative mb-6">
+                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                 <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-white px-2 text-gray-300">Or</span></div>
+               </div>
 
-          <div className="mt-8 text-center">
-            <button 
-              onClick={() => { setIsLogin(!isLogin); setError(null); }}
-              className="text-xs text-gray-500 hover:text-black transition-colors"
-            >
-              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-            </button>
+               <button 
+                 onClick={() => { setIsLogin(!isLogin); setError(null); }}
+                 className="text-xs text-gray-500 hover:text-[#111] transition-colors font-medium underline underline-offset-4"
+               >
+                 {isLogin ? "New to Omnia? Create an account" : "Already have an account? Sign in"}
+               </button>
+             </div>
           </div>
-        </div>
-
-        {/* Right Side - Visual */}
-        <div className="hidden md:flex flex-1 bg-black relative items-center justify-center overflow-hidden">
-          <div className="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center"></div>
-          <div className="relative z-10 p-12 text-white">
-            <h2 className="text-3xl font-bold leading-tight mb-4">Illuminate your vision.</h2>
-            <p className="text-gray-300 font-light opacity-90">
-              Join thousands of outdoor lighting professionals using AI to close more deals in seconds.
-            </p>
+          
+          <div className="absolute bottom-8 left-0 w-full text-center">
+             <span className="text-[10px] text-gray-300 font-medium tracking-widest uppercase">© 2024 Omnia Design Suite</span>
           </div>
-        </div>
-
       </div>
+
+      {/* Right Side - Image Area */}
+      <div className="hidden lg:flex flex-1 relative bg-black overflow-hidden">
+         {/* Background Image */}
+         <div 
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-[20s] hover:scale-105"
+            style={{ 
+              backgroundImage: "url('https://images.unsplash.com/photo-1613545325278-f24b0cae1224?q=80&w=2070&auto=format&fit=crop')"
+            }}
+         />
+         
+         {/* Dark Gradient Overlay */}
+         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10"></div>
+         
+         {/* Content Overlay */}
+         <div className="absolute inset-0 p-16 flex flex-col justify-end text-white z-20">
+            <div className="max-w-lg mb-12 animate-in slide-in-from-bottom-10 duration-1000 delay-200">
+               <div className="w-12 h-1 bg-[#F6B45A] mb-8"></div>
+               <blockquote className="mb-8">
+                  <p className="text-3xl xl:text-4xl font-serif leading-snug italic text-gray-100">
+                    "Light creates ambience and feel of a place, as well as the expression of a structure."
+                  </p>
+               </blockquote>
+               <div className="flex items-center gap-3 opacity-80">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#F6B45A]">Architectural Lighting</span>
+                  <div className="w-1 h-1 bg-white rounded-full"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Exterior Design</span>
+               </div>
+            </div>
+         </div>
+      </div>
+
     </div>
   );
 };

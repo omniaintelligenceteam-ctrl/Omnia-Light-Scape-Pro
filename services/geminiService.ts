@@ -1,9 +1,8 @@
-
-
 import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
-const API_KEY = 'AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA';
+// API Key must be obtained exclusively from the environment variable process.env.API_KEY
+// The user MUST select their own API key via window.aistudio for high-end models.
 
 const MODEL_NAME = 'gemini-3-pro-image-preview';
 const ANALYSIS_MODEL_NAME = 'gemini-2.5-flash'; 
@@ -11,12 +10,20 @@ const CHAT_MODEL_NAME = 'gemini-2.5-flash';
 
 
 export const checkApiKey = async (): Promise<boolean> => {
-  // Always return true, assuming the developer has configured the API Key in environment variables.
-  return true;
+  // When using Veo or gemini-3-pro-image-preview, users MUST select their own paid API key.
+  if (typeof window !== 'undefined' && (window as any).aistudio) {
+      return await (window as any).aistudio.hasSelectedApiKey();
+  }
+  // Fallback for other environments or models if strictly using process.env
+  return !!process.env.API_KEY;
 };
 
 export const openApiKeySelection = async (): Promise<void> => {
-   console.warn("API Key selection is disabled. Please configure process.env.API_KEY.");
+   if (typeof window !== 'undefined' && (window as any).aistudio) {
+       await (window as any).aistudio.openSelectKey();
+   } else {
+       console.warn("AI Studio API Key selection is disabled or unavailable.");
+   }
 };
 
 export const chatWithAssistant = async (
@@ -25,7 +32,7 @@ export const chatWithAssistant = async (
   currentView: string
 ): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: 'AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA' });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
     const systemInstruction = `
@@ -94,7 +101,7 @@ export const detectFixtureLocations = async (
   designPromptLabel: string
 ): Promise<LightMarker[]> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     let focusTypes = "";
     let allowedTypes: string[] = [];
@@ -213,7 +220,7 @@ export const generateLightingMockup = async (
   userInstructions: string = "" 
 ): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // Parse allowed types from userInstructions
     let allowedTypesInstruction = "";
@@ -326,7 +333,10 @@ export const generateLightingMockup = async (
     } else {
       placementInstruction = `
         Auto-Design Mode:
-        Act as a professional lighting designer.
+        ROLE: Professional Landscape Lighting Designer.
+        OBJECTIVE: Light this property up in the BEST WAY POSSIBLE. 
+        Create a stunning, high-end, professional lighting design that maximizes curb appeal and architectural beauty.
+        
         Analyze the architecture and landscaping. Intelligently place:
         1. Up-lights at the base of key columns and architectural features (full height of the feature). NOTE: Up-lights must be on the ground, never on roof or concrete.
         2. Path lights along walkways and garden borders.
