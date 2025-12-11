@@ -40,9 +40,9 @@ interface SidebarProps {
   user: User | null;
   subscription: Subscription | null;
   onOpenPricing: () => void;
-  isLightingPanelOpen: boolean;
-  onToggleLightingPanel: () => void;
   onSave: () => void;
+  isChatOpen: boolean;
+  onToggleChat: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -51,9 +51,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user, 
   subscription, 
   onOpenPricing,
-  isLightingPanelOpen,
-  onToggleLightingPanel,
-  onSave
+  onSave,
+  isChatOpen,
+  onToggleChat
 }) => {
   const isPro = subscription?.status === 'active';
 
@@ -84,14 +84,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             isActive={activeView === 'quotes'}
             onClick={() => onNavigate('quotes')}
           />
-          
+
           <SidebarItem 
-            label="Light Options" 
-            isActive={isLightingPanelOpen}
-            onClick={onToggleLightingPanel}
+            label="Assistant" 
+            isActive={isChatOpen}
+            onClick={onToggleChat}
+            isSpecial
           />
-           
-          {/* Settings: Visible in bottom nav on all screens now */}
+          
+          {/* Settings: Moved Light Options here */}
           <SidebarItem 
             label="Settings" 
             isActive={activeView === 'settings'}

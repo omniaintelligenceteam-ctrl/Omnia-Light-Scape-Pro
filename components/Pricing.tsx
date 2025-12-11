@@ -10,17 +10,16 @@ interface PricingProps {
 }
 
 export const Pricing: React.FC<PricingProps> = ({ isOpen, onClose, onSubscribe }) => {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
-  const [loading, setLoading] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlan | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSelectPlan = async () => {
-    setLoading(true);
+  const handleSelectPlan = async (plan: SubscriptionPlan) => {
+    setLoadingPlan(plan);
     // Simulate Stripe Checkout redirect delay
     await new Promise(resolve => setTimeout(resolve, 1500));
-    await onSubscribe(billingCycle === 'monthly' ? 'pro_monthly' : 'pro_yearly');
-    setLoading(false);
+    await onSubscribe(plan);
+    setLoadingPlan(null);
     onClose();
   };
 
@@ -28,123 +27,76 @@ export const Pricing: React.FC<PricingProps> = ({ isOpen, onClose, onSubscribe }
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
       
-      <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300">
+      <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         
-        {/* Left: Value Prop */}
-        <div className="bg-black text-white p-10 md:w-2/5 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-accent/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          
-          <div>
-            <div className="flex items-center gap-2 mb-6 text-accent">
-              <Sparkles size={24} />
-              <span className="text-xs font-bold tracking-widest uppercase">Go Pro</span>
+        {/* Header */}
+        <div className="p-8 pb-4 text-center">
+            <div className="flex justify-end">
+                 <button onClick={onClose} className="p-2 -mr-2 -mt-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-[#111]">
+                    <X size={20} />
+                 </button>
             </div>
-            <h2 className="text-3xl font-bold mb-4 leading-tight">Unlock the full power of AI Lighting.</h2>
-            <p className="text-gray-400 font-light text-sm leading-relaxed">
-              Generate unlimited high-resolution mockups, access advanced editing tools, and remove all watermarks.
+            <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-black/10">
+               <Sparkles size={20} className="text-[#F6B45A]" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-[#111] mb-2">Upgrade to Pro</h2>
+            <p className="text-gray-500 text-sm leading-relaxed">
+               Unlock unlimited AI generations, 4K exports, and remove watermarks.
             </p>
-          </div>
+        </div>
 
-          <div className="space-y-4 mt-8">
-            {[
-              "Unlimited AI Generations",
-              "4K Resolution Downloads",
-              "Commercial Usage License",
-              "Priority Processing",
-              "Advanced Fixture Controls"
-            ].map((feature, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-accent">
-                  <Check size={12} strokeWidth={3} />
+        {/* Options */}
+        <div className="p-8 pt-2 space-y-4">
+            
+            {/* Monthly */}
+            <button 
+                onClick={() => handleSelectPlan('pro_monthly')}
+                disabled={!!loadingPlan}
+                className="w-full group bg-white border-2 border-gray-100 rounded-2xl p-5 flex items-center justify-between hover:border-gray-300 transition-all text-left relative overflow-hidden"
+            >
+                <div>
+                    <p className="font-bold text-[#111] text-sm uppercase tracking-wider mb-1">Monthly</p>
+                    <p className="text-2xl font-bold text-[#111]">${STRIPE_CONFIG.PLANS.MONTHLY.price}<span className="text-sm font-medium text-gray-400">/mo</span></p>
                 </div>
-                <span className="text-sm font-medium text-gray-200">{feature}</span>
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-8 pt-8 border-t border-white/10">
-             <div className="flex items-center gap-2 text-gray-500">
-                <ShieldCheck size={16} />
-                <span className="text-xs">Secure payment via Stripe</span>
-             </div>
-          </div>
-        </div>
-
-        {/* Right: Plan Selection */}
-        <div className="p-10 md:w-3/5 bg-gray-50 flex flex-col">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-xl font-bold text-gray-900">Select Plan</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-              <X size={20} className="text-gray-500" />
+                {loadingPlan === 'pro_monthly' ? (
+                   <Loader2 size={24} className="animate-spin text-[#F6B45A]" />
+                ) : (
+                   <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#111] group-hover:text-white transition-colors">
+                      <Zap size={16} />
+                   </div>
+                )}
             </button>
-          </div>
 
-          {/* Toggle */}
-          <div className="flex justify-center mb-8">
-            <div className="bg-gray-200 p-1 rounded-full flex relative">
-              <button 
-                onClick={() => setBillingCycle('monthly')}
-                className={`px-6 py-2 rounded-full text-xs font-bold transition-all z-10 ${billingCycle === 'monthly' ? 'text-black' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                Monthly
-              </button>
-              <button 
-                onClick={() => setBillingCycle('yearly')}
-                className={`px-6 py-2 rounded-full text-xs font-bold transition-all z-10 flex items-center gap-2 ${billingCycle === 'yearly' ? 'text-black' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                Yearly
-                <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide">Save 15%</span>
-              </button>
-              
-              <div 
-                className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full shadow-sm transition-transform duration-300 ${billingCycle === 'yearly' ? 'translate-x-full' : 'translate-x-0'}`}
-              />
+            {/* Yearly */}
+            <button 
+                onClick={() => handleSelectPlan('pro_yearly')}
+                disabled={!!loadingPlan}
+                className="w-full group bg-[#111] border-2 border-[#111] rounded-2xl p-5 flex items-center justify-between hover:bg-black transition-all text-left relative overflow-hidden shadow-xl shadow-black/10"
+            >
+                <div className="absolute top-0 right-0 bg-[#F6B45A] text-[#111] text-[9px] font-bold px-3 py-1 rounded-bl-xl">
+                    SAVE 15%
+                </div>
+
+                <div>
+                    <p className="font-bold text-white text-sm uppercase tracking-wider mb-1">Yearly</p>
+                    <p className="text-2xl font-bold text-white">${STRIPE_CONFIG.PLANS.YEARLY.price}<span className="text-sm font-medium text-gray-500">/yr</span></p>
+                </div>
+                 {loadingPlan === 'pro_yearly' ? (
+                   <Loader2 size={24} className="animate-spin text-white" />
+                ) : (
+                   <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-[#111] transition-colors">
+                      <Zap size={16} />
+                   </div>
+                )}
+            </button>
+
+            <div className="pt-4 text-center">
+                 <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
+                   <ShieldCheck size={12} /> Secured by Stripe. Cancel anytime.
+                 </p>
             </div>
-          </div>
-
-          {/* Selected Plan Card */}
-          <div className="bg-white border-2 border-black rounded-3xl p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden">
-             {billingCycle === 'yearly' && (
-               <div className="absolute top-4 right-4 text-accent animate-pulse">
-                 <Zap size={20} fill="currentColor" />
-               </div>
-             )}
-             
-             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">
-               {billingCycle === 'monthly' ? STRIPE_CONFIG.PLANS.MONTHLY.name : STRIPE_CONFIG.PLANS.YEARLY.name}
-             </p>
-             <div className="flex items-baseline justify-center gap-1 mb-2">
-               <span className="text-5xl font-bold tracking-tighter">
-                 ${billingCycle === 'monthly' ? STRIPE_CONFIG.PLANS.MONTHLY.price : STRIPE_CONFIG.PLANS.YEARLY.price}
-               </span>
-               <span className="text-gray-400 font-medium">
-                 /{billingCycle === 'monthly' ? 'mo' : 'yr'}
-               </span>
-             </div>
-             <p className="text-sm text-gray-500 mb-8 max-w-xs mx-auto">
-               Full access to all AI tools, unlimited projects, and premium support.
-             </p>
-
-             <button 
-               onClick={handleSelectPlan}
-               disabled={loading}
-               className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform shadow-lg hover:shadow-xl disabled:opacity-70 disabled:hover:scale-100 flex items-center justify-center gap-2"
-             >
-               {loading ? (
-                 <>
-                   <Loader2 size={18} className="animate-spin" /> Processing...
-                 </>
-               ) : (
-                 "Subscribe Now"
-               )}
-             </button>
-             
-             <p className="text-[10px] text-gray-400 mt-4">
-               Cancel anytime. No hidden fees.
-             </p>
-          </div>
-
         </div>
+
       </div>
     </div>
   );

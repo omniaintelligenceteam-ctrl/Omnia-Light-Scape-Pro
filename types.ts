@@ -44,6 +44,14 @@ export interface User {
   created_at: number; // Timestamp
 }
 
+export interface FixturePricing {
+  id: string;
+  fixtureType: 'up' | 'path' | 'gutter' | 'transformer' | 'custom';
+  name: string;
+  description: string;
+  unitPrice: number;
+}
+
 export interface UserSettings {
   user_id: string;
   company_name?: string;
@@ -52,6 +60,7 @@ export interface UserSettings {
   default_beam_angle: number; // e.g. 60
   default_fixture_type: MarkerType;
   default_design_template?: string; // Label of the Quick Prompt to use by default
+  fixture_pricing?: FixturePricing[];
 }
 
 export type SubscriptionPlan = 'pro_monthly' | 'pro_yearly';

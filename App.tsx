@@ -1,9 +1,6 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
-import { Toggle } from './components/Toggle';
-import { Slider } from './components/Slider';
 import { Auth } from './components/Auth';
 import { ProjectGallery } from './components/ProjectGallery';
 import { Quotes } from './components/Quotes';
@@ -11,8 +8,8 @@ import { Pricing } from './components/Pricing';
 import { Paywall } from './components/Paywall';
 import { SettingsPage } from './components/SettingsPage';
 import { Chatbot } from './components/Chatbot';
-import { COLOR_TEMPERATURES, QUICK_PROMPTS } from './constants';
-import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem } from './types';
+import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from './constants';
+import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem, FixturePricing } from './types';
 import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateLightingMockup, detectFixtureLocations } from './services/geminiService';
 import { createCheckoutSession, createPortalSession } from './services/stripeService';
@@ -27,6 +24,9 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showPricing, setShowPricing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+
+  // Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // App State
   const [apiKeyReady, setApiKeyReady] = useState<boolean>(true); // Default to true, assuming env var is set
@@ -53,7 +53,6 @@ const App: React.FC = () => {
   const [currentCritiqueInput, setCurrentCritiqueInput] = useState("");
   
   // UI State for Panels
-  const [isLightingPanelOpen, setIsLightingPanelOpen] = useState(false);
   const [isQuickPromptsOpen, setIsQuickPromptsOpen] = useState(false);
   
   // Quote State
@@ -166,7 +165,6 @@ const App: React.FC = () => {
     if (userSettings) {
        const temp = COLOR_TEMPERATURES.find(t => t.id === userSettings.default_color_temp);
        if (temp) setSelectedTemp(temp);
-       if (markers.length === 0) setActiveTool(userSettings.default_fixture_type);
        
        if (userSettings.default_design_template) {
          setSelectedQuickPromptLabel(userSettings.default_design_template);
@@ -214,51 +212,71 @@ const App: React.FC = () => {
        if (gutterMatch) gutterCount = parseInt(gutterMatch[1]);
     }
 
+    // Helper to get price configuration
+    const getPricing = (type: 'up' | 'path' | 'gutter' | 'transformer'): FixturePricing => {
+        const custom = userSettings?.fixture_pricing?.find(p => p.fixtureType === type);
+        if (custom) return custom;
+        
+        // Fallback to default if not found in user settings
+        const def = DEFAULT_PRICING.find(p => p.fixtureType === type);
+        return def ? { ...def } : { 
+            id: 'temp', 
+            fixtureType: type, 
+            name: 'Generic Fixture', 
+            description: '', 
+            unitPrice: 0 
+        };
+    };
+
     const items: QuoteItem[] = [];
     
     if (upCount > 0) {
+       const pricing = getPricing('up');
        items.push({
           id: Date.now().toString() + 'up', 
-          description: 'Solid Cast Brass Up Light: COMPLETELY INSTALLED PRICE', 
-          details: 'Color: Light Bronze OR Gun Metal Black\nLIFETIME product warranty on the fixture\n1 Year product warranty on LED Bulb: Rated for 30,000 hours\nLabor, LED Bulb, Wire, Waterproof Wire Nuts, Etc ALL included in the fixture price.',
+          description: pricing.name, 
+          details: pricing.description,
           quantity: upCount, 
-          unitPrice: 175.00, 
-          total: upCount * 175.00, 
+          unitPrice: pricing.unitPrice, 
+          total: upCount * pricing.unitPrice, 
           type: 'fixture'
        });
     }
     if (gutterCount > 0) {
+       const pricing = getPricing('gutter');
        items.push({
           id: Date.now().toString() + 'gutter', 
-          description: 'Solid Cast Brass Up Light - Gutter Mount: COMPLETELY INSTALLED PRICE', 
-          details: 'Color: Light Bronze OR Gun Metal Black\nLIFETIME product warranty on the fixture\n1 Year product warranty on LED Bulb: Rated for 30,000 hours\nLabor, LED Bulb, Wire, Waterproof Wire Nuts, Etc ALL included in the fixture price.',
+          description: pricing.name, 
+          details: pricing.description,
           quantity: gutterCount, 
-          unitPrice: 185.00, 
-          total: gutterCount * 185.00, 
+          unitPrice: pricing.unitPrice, 
+          total: gutterCount * pricing.unitPrice, 
           type: 'fixture'
        });
     }
     if (pathCount > 0) {
+       const pricing = getPricing('path');
        items.push({
           id: Date.now().toString() + 'path', 
-          description: 'Cast Brass - Modern Path Light: COMPLETELY INSTALLED PRICE', 
-          details: 'Color: Light Bronze OR Gun Metal Black\nLIFETIME warranty on the fixture\nLabor, LED Bulb, Wire, Waterproof Wire Nuts, Etc. Included in the fixture price.',
+          description: pricing.name, 
+          details: pricing.description,
           quantity: pathCount, 
-          unitPrice: 210.00, 
-          total: pathCount * 210.00, 
+          unitPrice: pricing.unitPrice, 
+          total: pathCount * pricing.unitPrice, 
           type: 'fixture'
        });
     }
     
     // Auto-add Transformer if any fixtures are present
     if (items.length > 0) {
+        const pricing = getPricing('transformer');
         items.push({
             id: Date.now().toString() + 'trans',
-            description: 'Professional Low Voltage Transformer (300W)',
-            details: 'Stainless Steel Case\nLifetime Warranty\nPhoto Cell / Timer included\nInstalled with dedicated circuit connection.',
+            description: pricing.name,
+            details: pricing.description,
             quantity: 1,
-            unitPrice: 350.00,
-            total: 350.00,
+            unitPrice: pricing.unitPrice,
+            total: pricing.unitPrice,
             type: 'fixture'
         });
     } else {
@@ -296,7 +314,6 @@ const App: React.FC = () => {
 
   // NAVIGATION & PANEL LOGIC
   const handleNavigate = (newView: 'editor' | 'projects' | 'quotes' | 'settings') => {
-    setIsLightingPanelOpen(false);
     
     if (newView === 'quotes') {
        // Auto-generate a draft quote if coming from editor
@@ -307,13 +324,7 @@ const App: React.FC = () => {
     }
     
     setView(newView);
-  };
-
-  const toggleLightingPanel = () => {
-    if (!isLightingPanelOpen) {
-        if (view !== 'editor') setView('editor');
-    }
-    setIsLightingPanelOpen(!isLightingPanelOpen);
+    // Close chat when navigating if desired, or keep open. Keeping it open is usually better UX unless mobile.
   };
 
   const handleLogin = (loggedInUser: User) => {
@@ -426,7 +437,7 @@ const App: React.FC = () => {
           setError(null);
           setCritiques([]); 
           setFeedbackStatus('none');
-          setActiveTool('up');
+          setActiveTool('none');
           setAimingMarkerId(null);
           
           if (userSettings?.default_design_template) {
@@ -602,12 +613,10 @@ const App: React.FC = () => {
         user={user} 
         subscription={subscription}
         onOpenPricing={() => setShowPricing(true)}
-        isLightingPanelOpen={isLightingPanelOpen}
-        onToggleLightingPanel={toggleLightingPanel}
         onSave={handleSaveProject}
+        isChatOpen={isChatOpen}
+        onToggleChat={() => setIsChatOpen(!isChatOpen)}
       />
-
-      <Chatbot currentView={view} />
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full pb-16 md:pb-20">
         <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-[#111] text-white shadow-lg z-20 shrink-0 border-b border-gray-800">
@@ -653,6 +662,10 @@ const App: React.FC = () => {
                 onSaveSettings={handleSaveUserSettings}
                 onUpgrade={() => setShowPricing(true)}
                 onLogout={handleLogout}
+                appSettings={settings}
+                setAppSettings={setSettings}
+                selectedTemp={selectedTemp}
+                setSelectedTemp={setSelectedTemp}
              />
           )}
 
@@ -898,7 +911,7 @@ const App: React.FC = () => {
                             <button 
                               onClick={() => {
                                  setFeedbackStatus('disliked');
-                                 setActiveTool('up'); // Auto-activate up tool when fixing
+                                 setActiveTool('none'); 
                               }}
                               className={`flex-1 py-4 rounded-xl flex flex-col items-center gap-2 transition-all duration-300 ${feedbackStatus === 'disliked' ? 'bg-[#111] text-white' : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600'}`}
                             >
@@ -910,28 +923,6 @@ const App: React.FC = () => {
                          {feedbackStatus === 'disliked' && (
                             <div className="w-full p-6 border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
                                <div className="relative">
-                                  {/* Fixture Toolbar in Feedback Mode */}
-                                  <div className="flex justify-center gap-2 mb-4 bg-black p-2 rounded-xl w-fit mx-auto">
-                                    <button
-                                      onClick={() => setActiveTool('up')}
-                                      className={`p-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'up' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                      <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_red]"></div> Up Light
-                                    </button>
-                                    <button
-                                      onClick={() => setActiveTool('path')}
-                                      className={`p-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'path' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                      <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_blue]"></div> Path Light
-                                    </button>
-                                    <button
-                                      onClick={() => setActiveTool('gutter')}
-                                      className={`p-2 rounded-lg flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTool === 'gutter' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                      <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_orange]"></div> Gutter Mount
-                                    </button>
-                                  </div>
-
                                   <textarea 
                                     value={currentCritiqueInput}
                                     onChange={(e) => setCurrentCritiqueInput(e.target.value)}
@@ -968,101 +959,6 @@ const App: React.FC = () => {
 
       </main>
 
-      {isLightingPanelOpen && (
-         <>
-            <div 
-               className="fixed inset-0 bg-black/50 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none z-40" 
-               onClick={() => setIsLightingPanelOpen(false)}
-            />
-            <div className="fixed md:absolute bottom-16 md:bottom-20 left-0 md:left-20 w-full md:w-80 h-auto max-h-[70vh] overflow-y-auto bg-[#111] border-t md:border-t border-gray-800 z-50 p-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 rounded-t-3xl md:rounded-tr-3xl">
-               <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-2">
-                     <Sliders size={14} className="text-[#F6B45A]" />
-                     <span className="text-[10px] font-bold text-white uppercase tracking-[0.15em]">Light Options</span>
-                  </div>
-                  <button onClick={() => setIsLightingPanelOpen(false)} className="md:hidden text-gray-500">
-                     <X size={16} />
-                  </button>
-               </div>
-               
-               {/* Color Temperature Section */}
-               <div className="mb-8">
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em] mb-3">Color Temperature</p>
-                  <div className="space-y-3">
-                    {COLOR_TEMPERATURES.map(temp => (
-                      <button
-                        key={temp.id}
-                        onClick={() => setSelectedTemp(temp)}
-                        className={`
-                          w-full flex items-center justify-between p-3 rounded-lg border transition-all group
-                          ${selectedTemp.id === temp.id 
-                            ? 'bg-[#1F1F1F] border-[#F6B45A] shadow-[0_0_15px_-5px_rgba(246,180,90,0.3)]' 
-                            : 'bg-[#0A0A0A] border-gray-800 hover:border-gray-600'}
-                        `}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className="w-8 h-8 rounded-full shadow-inner border border-white/10"
-                            style={{ backgroundColor: temp.color, boxShadow: `0 0 10px ${temp.color}40` }}
-                          />
-                          <div className="text-left">
-                            <p className={`text-xs font-bold ${selectedTemp.id === temp.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
-                              {temp.kelvin}
-                            </p>
-                            <p className="text-[9px] text-gray-500 uppercase tracking-wide">{temp.description}</p>
-                          </div>
-                        </div>
-                        {selectedTemp.id === temp.id && <div className="w-1.5 h-1.5 rounded-full bg-[#F6B45A] shadow-[0_0_5px_#F6B45A]" />}
-                      </button>
-                    ))}
-                  </div>
-               </div>
-
-               {/* Divider */}
-               <div className="h-px bg-gray-800 w-full mb-6" />
-
-               {/* Refinement Sliders Section */}
-               <div className="space-y-6">
-                   <div className="flex items-center justify-between py-2">
-                        <span className="text-[11px] font-medium text-gray-400">Resolution</span>
-                        <span className="text-[10px] font-bold text-[#F6B45A] bg-[#F6B45A]/10 px-2 py-1 rounded border border-[#F6B45A]/20">Nano Banana Pro 2K</span>
-                   </div>
-                   <Slider 
-                      label="Ambient Light" 
-                      value={settings.ambientLight} 
-                      onChange={(val) => setSettings({...settings, ambientLight: val})} 
-                   />
-                   <Slider 
-                      label="Fixture Brightness" 
-                      value={settings.intensity} 
-                      onChange={(val) => setSettings({...settings, intensity: val})} 
-                   />
-               </div>
-
-               <div className="pt-8 mt-6 border-t border-gray-800">
-                  <button 
-                    className="w-full bg-[#1F1F1F] text-gray-400 hover:text-white py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-gray-800 hover:border-gray-600 transition-all"
-                    onClick={() => {
-                        setSettings({
-                          darkSkyMode: true,
-                          preserveNonLit: true,
-                          highRealism: true,
-                          intensity: 80,
-                          textureRealism: 80,
-                          shadowContrast: 60,
-                          ambientLight: 20,
-                          ultraResolution: true
-                        });
-                        setSelectedTemp(COLOR_TEMPERATURES[1]);
-                    }}
-                  >
-                    Reset Defaults
-                  </button>
-               </div>
-            </div>
-         </>
-      )}
-
       <Pricing 
         isOpen={showPricing} 
         onClose={() => setShowPricing(false)} 
@@ -1074,6 +970,12 @@ const App: React.FC = () => {
         onSubscribe={handleSubscribe} 
         onManageBilling={handleManageBilling}
         userSubscriptionStatus={subscription?.status || 'none'}
+      />
+      
+      <Chatbot 
+        currentView={view} 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
       />
 
       {previewImage && (

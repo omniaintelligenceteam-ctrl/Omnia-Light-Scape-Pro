@@ -1,9 +1,10 @@
-
 import React, { useState } from 'react';
-import { User, UserSettings, Subscription, TrialState, MarkerType } from '../types';
+import { User, UserSettings, Subscription, TrialState, AppSettings, ColorTemperature, FixturePricing } from '../types';
 import { createPortalSession } from '../services/stripeService';
-import { Save, Loader2, CreditCard, Crown, Clock, Building, Lightbulb, Sparkles, ChevronDown, Mail, ShieldCheck, LogOut } from 'lucide-react';
-import { COLOR_TEMPERATURES, QUICK_PROMPTS } from '../constants';
+import { Save, Loader2, CreditCard, Crown, Building, Lightbulb, ChevronDown, Mail, ShieldCheck, LogOut, Sliders, DollarSign, Tag } from 'lucide-react';
+import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from '../constants';
+import { Slider } from './Slider';
+import { Toggle } from './Toggle';
 
 interface SettingsPageProps {
   user: User;
@@ -13,7 +14,57 @@ interface SettingsPageProps {
   onSaveSettings: (newSettings: UserSettings) => void;
   onUpgrade: () => void;
   onLogout: () => void;
+  appSettings: AppSettings;
+  setAppSettings: (s: AppSettings) => void;
+  selectedTemp: ColorTemperature;
+  setSelectedTemp: (t: ColorTemperature) => void;
 }
+
+const SettingsSection = ({ 
+  title, 
+  subtitle, 
+  icon: Icon, 
+  isOpen, 
+  onToggle, 
+  children 
+}: { 
+  title: string; 
+  subtitle: string; 
+  icon: any; 
+  isOpen: boolean; 
+  onToggle: () => void; 
+  children: React.ReactNode; 
+}) => {
+  return (
+    <div className={`bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 ${isOpen ? 'ring-1 ring-[#F6B45A]/20 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.06)]' : ''}`}>
+      <button 
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-6 md:p-8 hover:bg-gray-50/50 transition-colors text-left group"
+      >
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${isOpen ? 'bg-[#111] text-[#F6B45A] shadow-lg shadow-black/10 scale-110' : 'bg-gray-50 text-gray-400 group-hover:bg-white group-hover:shadow-sm'}`}>
+            <Icon size={20} />
+          </div>
+          <div>
+            <h2 className={`text-lg font-bold transition-colors ${isOpen ? 'text-[#111]' : 'text-gray-600'}`}>{title}</h2>
+            <p className="text-xs text-gray-400 font-medium tracking-wide">{subtitle}</p>
+          </div>
+        </div>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isOpen ? 'rotate-180 bg-gray-100 text-[#111]' : 'text-gray-300'}`}>
+           <ChevronDown size={20} />
+        </div>
+      </button>
+      
+      <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+         <div className="p-8 pt-0 border-t border-gray-50 animate-in fade-in slide-in-from-top-2 duration-300">
+           <div className="pt-6">
+             {children}
+           </div>
+         </div>
+      </div>
+    </div>
+  );
+};
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ 
   user, 
@@ -21,16 +72,33 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   subscription, 
   trialState, 
   onSaveSettings, 
-  onUpgrade,
-  onLogout
+  onUpgrade, 
+  onLogout,
+  appSettings,
+  setAppSettings,
+  selectedTemp,
+  setSelectedTemp
 }) => {
   const [loading, setLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>('lighting');
   
   // Local state for form
   const [companyName, setCompanyName] = useState(userSettings?.company_name || '');
   const [defaultColorTemp, setDefaultColorTemp] = useState(userSettings?.default_color_temp || '3000k');
   const [defaultDesignTemplate, setDefaultDesignTemplate] = useState(userSettings?.default_design_template || '');
+
+  // Pricing State
+  const [pricingConfig, setPricingConfig] = useState<FixturePricing[]>(() => {
+    // Merge existing user pricing with defaults to ensure all types are represented
+    const currentPricing = userSettings?.fixture_pricing || [];
+    const mergedPricing = DEFAULT_PRICING.map(def => {
+        const existing = currentPricing.find(p => p.fixtureType === def.fixtureType);
+        // We use the existing override, or a fresh copy of the default
+        return existing ? { ...existing } : { ...def, id: `def_${def.fixtureType}` };
+    });
+    return mergedPricing;
+  });
 
   // Calculate Trial Status
   const now = Date.now();
@@ -55,7 +123,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       ...userSettings,
       company_name: companyName,
       default_color_temp: defaultColorTemp,
-      default_design_template: defaultDesignTemplate
+      default_design_template: defaultDesignTemplate,
+      fixture_pricing: pricingConfig
     };
     
     onSaveSettings(updated);
@@ -74,6 +143,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   };
 
+  const updatePricingItem = (index: number, field: keyof FixturePricing, value: any) => {
+     const newConfig = [...pricingConfig];
+     newConfig[index] = { ...newConfig[index], [field]: value };
+     setPricingConfig(newConfig);
+  };
+
+  const toggleSection = (id: string) => {
+    setActiveSection(prev => prev === id ? null : id);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#FDFCFB] relative font-sans text-[#111]">
       {/* Subtle Ambient Background */}
@@ -90,20 +169,102 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
           {/* Left Column: Forms */}
-          <div className="lg:col-span-8 flex flex-col gap-8">
+          <div className="lg:col-span-8 flex flex-col gap-4">
+
+            {/* 1. Lighting Configuration */}
+            <SettingsSection
+              title="Lighting Configuration"
+              subtitle="Adjust settings for your current design session"
+              icon={Sliders}
+              isOpen={activeSection === 'lighting'}
+              onToggle={() => toggleSection('lighting')}
+            >
+                {/* Color Temp */}
+                <div className="mb-8">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-4">Color Temperature</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {COLOR_TEMPERATURES.map(temp => (
+                        <button
+                          key={temp.id}
+                          onClick={() => setSelectedTemp(temp)}
+                          className={`
+                            flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center
+                            ${selectedTemp.id === temp.id 
+                              ? 'bg-[#111] border-[#111] text-white shadow-lg' 
+                              : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}
+                          `}
+                        >
+                          <div 
+                            className="w-4 h-4 rounded-full shadow-sm border border-black/5"
+                            style={{ backgroundColor: temp.color }}
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold">{temp.kelvin}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                </div>
+
+                {/* Sliders */}
+                <div className="space-y-2">
+                    <Slider 
+                      label="Ambient Light (Time of Day)" 
+                      value={appSettings.ambientLight} 
+                      onChange={(val) => setAppSettings({...appSettings, ambientLight: val})} 
+                      dark={false}
+                    />
+                    <Slider 
+                      label="Fixture Intensity" 
+                      value={appSettings.intensity} 
+                      onChange={(val) => setAppSettings({...appSettings, intensity: val})} 
+                      dark={false}
+                    />
+                    <Slider 
+                      label="Shadow Contrast" 
+                      value={appSettings.shadowContrast} 
+                      onChange={(val) => setAppSettings({...appSettings, shadowContrast: val})} 
+                      dark={false}
+                    />
+                </div>
+
+                {/* Toggles - Advanced */}
+                <div className="mt-8 pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+                    <Toggle 
+                      label="Dark Sky Mode"
+                      checked={appSettings.darkSkyMode}
+                      onChange={(c) => setAppSettings({...appSettings, darkSkyMode: c})}
+                      dark={false}
+                    />
+                    <Toggle 
+                      label="Preserve Non-Lit Areas"
+                      checked={appSettings.preserveNonLit}
+                      onChange={(c) => setAppSettings({...appSettings, preserveNonLit: c})}
+                      dark={false}
+                    />
+                    <Toggle 
+                      label="High Realism Engine"
+                      checked={appSettings.highRealism}
+                      onChange={(c) => setAppSettings({...appSettings, highRealism: c})}
+                      dark={false}
+                    />
+                    <Toggle 
+                      label="Ultra Resolution (4K)"
+                      checked={appSettings.ultraResolution}
+                      onChange={(c) => setAppSettings({...appSettings, ultraResolution: c})}
+                      dark={false}
+                    />
+                </div>
+            </SettingsSection>
             
-            {/* Company Profile Card */}
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] p-10 relative overflow-hidden group hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.06)] transition-all duration-500">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-[#111] flex items-center justify-center text-[#F6B45A] shadow-lg shadow-black/10">
-                  <Building size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-[#111]">Company Profile</h2>
-                  <p className="text-xs text-gray-400 font-medium tracking-wide">Your business identity on exports</p>
-                </div>
-              </div>
-              
+            {/* 2. Company Profile */}
+            <SettingsSection
+              title="Company Profile"
+              subtitle="Your business identity on exports"
+              icon={Building}
+              isOpen={activeSection === 'profile'}
+              onToggle={() => toggleSection('profile')}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 flex items-center gap-2">
@@ -126,20 +287,79 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   />
                 </div>
               </div>
-            </div>
+            </SettingsSection>
 
-            {/* Design Defaults Card */}
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] p-10 relative overflow-hidden group hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.06)] transition-all duration-500">
-               <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-[#111] flex items-center justify-center text-[#F6B45A] shadow-lg shadow-black/10">
-                  <Lightbulb size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-[#111]">Design Defaults</h2>
-                  <p className="text-xs text-gray-400 font-medium tracking-wide">Preset configurations for new projects</p>
-                </div>
+            {/* 3. Company Pricing */}
+            <SettingsSection
+              title="Company Pricing"
+              subtitle="Set your standard unit prices for auto-quotes"
+              icon={DollarSign}
+              isOpen={activeSection === 'pricing'}
+              onToggle={() => toggleSection('pricing')}
+            >
+              <div className="space-y-8">
+                 {pricingConfig.map((item, idx) => (
+                    <div key={item.fixtureType} className="border border-gray-100 rounded-xl p-6 hover:border-gray-200 transition-colors bg-gray-50/30">
+                       <div className="flex justify-between items-center mb-4">
+                          <span className="text-[10px] font-bold uppercase tracking-widest bg-gray-200 text-gray-600 px-2 py-1 rounded">
+                             {item.fixtureType.toUpperCase()}
+                          </span>
+                       </div>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                          {/* Name and Price */}
+                          <div className="md:col-span-8 space-y-3">
+                             <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 flex items-center gap-2">
+                                <Tag size={12} /> Display Name
+                             </label>
+                             <input 
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updatePricingItem(idx, 'name', e.target.value)}
+                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#111] focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A]"
+                             />
+                          </div>
+                          
+                          <div className="md:col-span-4 space-y-3">
+                             <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 flex items-center gap-2">
+                                <DollarSign size={12} /> Unit Price
+                             </label>
+                             <div className="relative">
+                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                               <input 
+                                  type="number"
+                                  value={item.unitPrice}
+                                  onChange={(e) => updatePricingItem(idx, 'unitPrice', Number(e.target.value))}
+                                  className="w-full bg-white border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm font-bold text-[#111] focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A]"
+                               />
+                             </div>
+                          </div>
+                          
+                          {/* Description */}
+                          <div className="md:col-span-12 space-y-3">
+                             <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">
+                                Product Details / Warranty Info
+                             </label>
+                             <textarea 
+                                value={item.description}
+                                onChange={(e) => updatePricingItem(idx, 'description', e.target.value)}
+                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] min-h-[80px]"
+                             />
+                          </div>
+                       </div>
+                    </div>
+                 ))}
               </div>
+            </SettingsSection>
 
+            {/* 4. Design Defaults */}
+            <SettingsSection
+              title="Design Defaults"
+              subtitle="Preset configurations for new projects"
+              icon={Lightbulb}
+              isOpen={activeSection === 'defaults'}
+              onToggle={() => toggleSection('defaults')}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Default Color Temp</label>
@@ -178,10 +398,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </SettingsSection>
 
             {/* Save Button Container */}
-            <div className="flex justify-center pt-4">
+            <div className="flex justify-center pt-8">
               <button 
                 onClick={handleSave}
                 disabled={loading}
@@ -204,7 +424,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
           </div>
 
-          {/* Right Column: Subscription */}
+          {/* Right Column: Subscription (unchanged) */}
           <div className="lg:col-span-4">
              <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] p-8 h-full flex flex-col transition-all duration-500 hover:shadow-[0_30px_60px_-15px_rgba(246,180,90,0.08)] relative overflow-hidden">
                 {/* Background Decor */}

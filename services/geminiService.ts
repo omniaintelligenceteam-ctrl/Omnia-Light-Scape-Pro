@@ -50,7 +50,7 @@ export const chatWithAssistant = async (
       DESIGN PROMPTING EXPERTISE:
       - If a user asks for a specific look (e.g., "Make it look spooky" or "Highlight the columns"), generate a precise paragraph they can copy into the "Architect Notes".
       - **Fixture Rules**: We ONLY use:
-        1. Ground-Mounted Up Lights (base of walls/columns).
+        1. Ground-Mounted Up Lights (base of walls/columns). RULES: NEVER on roof, concrete, or mounted onto the house structure. Must be in soft ground (mulch/grass).
         2. Path Lights (walkways).
         3. Gutter Mounts (roofline/fascia).
       - WE DO NOT USE: Soffit lights, floodlights, wall packs, or string lights (unless specifically Christmas theme).
@@ -147,10 +147,11 @@ export const detectFixtureLocations = async (
       - "type": string (MUST be one of: ${allowedTypes.map(t => `'${t}'`).join(', ')})
       
       Rules:
-      - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections).
+      - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections). MUST BE ON GROUND/SOIL. NEVER on roof, concrete, or mounted on house structure.
       - 'path' lights go along the edges of driveways or walkways (ground level).
       - 'gutter' lights go on the roofline/fascia/gutter edge (high up).
       - Be precise. Do not place markers in the sky or on windows.
+      - Reality Check: Do not infer or hallucinate trees, parts of the home, side walkways, or driveways that are not clearly visible in the image.
       - Limit to 5-15 key fixtures to create a nice design.
       
       Response Format:
@@ -285,6 +286,7 @@ export const generateLightingMockup = async (
         } else if (m.type === 'up') {
           return `${index + 1}. UPLIGHT at (x: ${xVal}, y: ${yVal}):
    - Ground-mounted uplight.
+   - **RESTRICTION**: NEVER place on roof, concrete, or mounted onto the house structure. Must be in landscape beds/soft ground.
    - **CONTEXT AWARENESS (CRITICAL)**: Check the object directly behind/above this marker.
      - **CASE A (Architecture)**: If placed on a house foundation/wall, graze the wall/column upward. Uniform brightness up the wall.
      - **CASE B (Tree/Foliage)**: If placed in front of a tree or bush, illuminate the trunk and canopy from below. Highlight branches and foliage realistically with depth.
@@ -326,7 +328,7 @@ export const generateLightingMockup = async (
         Auto-Design Mode:
         Act as a professional lighting designer.
         Analyze the architecture and landscaping. Intelligently place:
-        1. Up-lights at the base of key columns and architectural features (full height of the feature).
+        1. Up-lights at the base of key columns and architectural features (full height of the feature). NOTE: Up-lights must be on the ground, never on roof or concrete.
         2. Path lights along walkways and garden borders.
         3. Ensure a balanced, professional composition with 60 degree beam spreads.
       `;
@@ -399,6 +401,7 @@ export const generateLightingMockup = async (
   Technical constraints:
   - ${techSpecs.join('\n- ')}
   - Architecture: PRESERVE the exact house structure and materials.
+  - STRICT REALISM: Do not hallucinate trees, parts of the home, side walkways, or driveways. Work ONLY with what is visible in the source image.
   - CLEANUP: Remove all marker dots and vector lines from the source image.
   
   FINAL CHECK:

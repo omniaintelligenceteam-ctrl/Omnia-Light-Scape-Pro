@@ -105,6 +105,11 @@ export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpd
         {/* Invoice Paper */}
         <div className="bg-white rounded-none md:rounded-[2px] shadow-xl p-6 md:p-8 min-h-[800px] relative print:shadow-none print:m-0 print:w-full">
            
+           {/* Date - Top Right Absolute Position */}
+           <div className="absolute top-6 right-6 md:top-8 md:right-8">
+              <p className="text-sm text-[#111] font-medium">Date: {activeQuote.date}</p>
+           </div>
+
            {/* Header / Company Info */}
            <div className="flex flex-col md:flex-row justify-between items-start border-b border-gray-100 pb-6 mb-8 gap-6">
               <div className="w-full md:w-auto">
@@ -120,9 +125,6 @@ export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpd
                    className="text-lg text-[#111] mt-1 font-medium bg-transparent focus:outline-none w-full placeholder:text-gray-400 border-none p-0"
                    placeholder="Company Tagline"
                  />
-              </div>
-              <div className="w-full md:w-auto text-left md:text-right pt-4 md:pt-0">
-                 <p className="text-sm text-[#111] font-medium">Date: {activeQuote.date}</p>
               </div>
            </div>
 

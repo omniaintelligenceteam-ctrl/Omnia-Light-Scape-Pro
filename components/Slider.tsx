@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface SliderProps {
@@ -6,16 +7,17 @@ interface SliderProps {
   min?: number;
   max?: number;
   onChange: (val: number) => void;
+  dark?: boolean;
 }
 
-export const Slider: React.FC<SliderProps> = ({ label, value, min = 0, max = 100, onChange }) => {
+export const Slider: React.FC<SliderProps> = ({ label, value, min = 0, max = 100, onChange, dark = true }) => {
   return (
     <div className="py-4">
       <div className="flex justify-between mb-4">
         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em]">{label}</span>
-        <span className="text-[10px] font-mono text-white font-medium tracking-tight">{value}%</span>
+        <span className={`text-[10px] font-mono font-medium tracking-tight ${dark ? 'text-white' : 'text-[#111]'}`}>{value}%</span>
       </div>
-      <div className="relative w-full h-[2px] bg-[#222] rounded-full group cursor-pointer flex items-center">
+      <div className={`relative w-full h-[2px] rounded-full group cursor-pointer flex items-center ${dark ? 'bg-[#222]' : 'bg-gray-200'}`}>
         <input
           type="range"
           min={min}
