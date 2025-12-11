@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Loader2, Mail, Lock, User as UserIcon, Sparkles } from 'lucide-react';
 import { User, UserSettings, Subscription, TrialState } from '../types';
+import { Logo } from './Logo';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -120,16 +121,81 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }, 1200);
   };
 
+  const handleDevBypass = () => {
+      const devUserId = 'dev-master';
+      const now = Date.now();
+      
+      const devUser: User = {
+          id: devUserId,
+          email: 'dev@omnia.com',
+          name: 'Master Developer',
+          created_at: now,
+          auth_provider_id: 'dev_bypass'
+      };
+
+      // Ensure persistence for the dev user if they don't exist yet
+      const storedUsers = JSON.parse(localStorage.getItem('lumina_users') || '[]');
+      const existingDev = storedUsers.find((u: any) => u.id === devUserId);
+
+      if (!existingDev) {
+          localStorage.setItem('lumina_users', JSON.stringify([...storedUsers, devUser]));
+          
+          // Settings
+          const settings: UserSettings = {
+             user_id: devUserId,
+             default_color_temp: '3000k',
+             default_beam_angle: 60,
+             default_fixture_type: 'up',
+             company_name: 'Omnia Dev Studio',
+             logo_url: ''
+          };
+          const allSettings = JSON.parse(localStorage.getItem('lumina_user_settings') || '[]');
+          localStorage.setItem('lumina_user_settings', JSON.stringify([...allSettings, settings]));
+
+          // Subscription (Give PRO access immediately)
+          const sub: Subscription = {
+              user_id: devUserId,
+              status: 'active',
+              plan: 'pro_yearly',
+              current_period_end: now + (365 * 24 * 60 * 60 * 1000),
+              stripe_customer_id: 'dev_cust_id',
+              stripe_subscription_id: 'dev_sub_id'
+          };
+          const allSubs = JSON.parse(localStorage.getItem('lumina_subscriptions') || '[]');
+          localStorage.setItem('lumina_subscriptions', JSON.stringify([...allSubs, sub]));
+
+          // Trial
+          const trial: TrialState = {
+              user_id: devUserId,
+              has_had_trial_before: true,
+              trial_start: now,
+              trial_end: now
+          };
+          const allTrials = JSON.parse(localStorage.getItem('lumina_trials') || '[]');
+          localStorage.setItem('lumina_trials', JSON.stringify([...allTrials, trial]));
+      }
+
+      onLogin(devUser);
+  };
+
   return (
     <div className="min-h-screen w-full flex bg-white font-sans text-[#111] overflow-hidden">
       
       {/* Left Side - Form Area */}
       <div className="w-full lg:w-[45%] xl:w-[40%] flex flex-col justify-center px-8 md:px-16 lg:px-24 xl:px-32 relative z-10 bg-white shadow-[20px_0_60px_-15px_rgba(0,0,0,0.05)]">
           
-          {/* Brand Logo - Top Left */}
-          <div className="absolute top-10 left-8 md:left-12">
-             <img src="/logo.png" alt="Omnia Light Scape PRO" className="h-20 w-auto object-contain" />
+          <div className="absolute top-8 left-8 md:left-16">
+            <Logo className="h-8 md:h-10" />
           </div>
+
+          {/* Dev Bypass Button */}
+          <button 
+             onClick={handleDevBypass}
+             className="absolute top-4 right-4 text-[9px] font-bold text-gray-300 hover:text-[#111] border border-transparent hover:border-gray-200 px-2 py-1 rounded transition-all uppercase tracking-widest"
+             title="Developer Auto-Login"
+          >
+             Dev Bypass
+          </button>
 
           <div className="max-w-sm w-full mx-auto mt-12 md:mt-0 animate-in fade-in slide-in-from-bottom-8 duration-700">
              <div className="mb-10">

@@ -70,8 +70,7 @@ const App: React.FC = () => {
     preserveNonLit: true,
     highRealism: true,
     intensity: 80,
-    textureRealism: 80,
-    shadowContrast: 60,
+    textureRealism: 80,    shadowContrast: 60,
     ambientLight: 20,
     ultraResolution: true,
   });
@@ -587,9 +586,12 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full pb-16 md:pb-20">
-        <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-white text-[#111] shadow-sm z-20 shrink-0 border-b border-gray-100">
+        <header className="px-6 py-4 md:py-4 md:px-10 flex items-center justify-between md:justify-between justify-between bg-[#111] text-white shadow-sm z-20 shrink-0 border-b border-gray-800">
           <div className="flex flex-col w-full md:w-auto text-left">
-            <img src="/logo.png" alt="Omnia Light Scape PRO" className="h-12 w-auto object-contain" />
+            <div className="flex items-baseline gap-2">
+              <span className="font-serif text-3xl md:text-4xl font-bold text-[#F6B45A] tracking-tight">Omnia</span>
+              <span className="font-serif italic text-sm md:text-lg font-bold tracking-[0.15em] text-gray-300 uppercase">Light Scape Pro</span>
+            </div>
           </div>
           
           <button 
