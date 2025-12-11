@@ -94,26 +94,57 @@ export const detectFixtureLocations = async (
   designPromptLabel: string
 ): Promise<LightMarker[]> => {
   try {
-    const apiKey = process.env.API_KEY;
-    const ai = new GoogleGenAI({ apiKey: apiKey || 'AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA' });
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
 
     let focusTypes = "";
-    if (designPromptLabel.includes("Up Lights Only")) focusTypes = "Only identify locations for ground-mounted 'up' lights at base of walls, columns, and trees.";
-    else if (designPromptLabel.includes("Path")) focusTypes = "Only identify locations for 'path' lights along walkways.";
-    else if (designPromptLabel.includes("Gutter")) focusTypes = "Identify 'gutter' lights at roofline highlighting dormers and architecture.";
-    else if (designPromptLabel.includes("Full")) focusTypes = "Identify 'up' lights, 'path' lights, and 'gutter' lights.";
-    else if (designPromptLabel.includes("Christmas") || designPromptLabel.includes("Halloween")) focusTypes = "Identify 'up' lights at foundation and 'gutter' lights at roofline.";
-    else focusTypes = "Identify 'up' lights at architecture base, 'path' lights along walks, 'gutter' lights on roofline.";
+    let allowedTypes: string[] = [];
+    
+    if (designPromptLabel === "Up Lights Only") {
+      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, columns, and trees. DO NOT place any path lights or gutter lights.";
+      allowedTypes = ['up'];
+    } 
+    else if (designPromptLabel === "Path Lights Only") {
+      focusTypes = "ONLY place PATH LIGHTS along walkways and driveways. DO NOT place any up lights or gutter lights.";
+      allowedTypes = ['path'];
+    }
+    else if (designPromptLabel === "Up Lights + Paths") {
+      focusTypes = "Place UP LIGHTS at the base of architecture AND PATH LIGHTS along walkways. DO NOT place any gutter lights.";
+      allowedTypes = ['up', 'path'];
+    }
+    else if (designPromptLabel === "Up Lights + Gutters") {
+      focusTypes = "Place UP LIGHTS at the base of architecture AND GUTTER MOUNT lights on the roofline. DO NOT place any path lights.";
+      allowedTypes = ['up', 'gutter'];
+    }
+    else if (designPromptLabel === "Up + Gutter + Path Layout") {
+      focusTypes = "Place UP LIGHTS, PATH LIGHTS, and GUTTER MOUNT lights for a complete design.";
+      allowedTypes = ['up', 'path', 'gutter'];
+    }
+    else if (designPromptLabel === "Christmas Theme") {
+      focusTypes = "Place UP LIGHTS at foundation with warm white/multi-color AND GUTTER MOUNT lights along all rooflines for a festive Christmas look. DO NOT place path lights.";
+      allowedTypes = ['up', 'gutter'];
+    }
+    else if (designPromptLabel === "Halloween Theme") {
+      focusTypes = "Place UP LIGHTS with orange/purple tones at foundation AND GUTTER MOUNT lights on roofline for a spooky Halloween look. DO NOT place path lights.";
+      allowedTypes = ['up', 'gutter'];
+    }
+    else {
+      focusTypes = "Place UP LIGHTS at architecture base, PATH LIGHTS along walks, GUTTER MOUNT lights on roofline.";
+      allowedTypes = ['up', 'path', 'gutter'];
+    }
 
     const prompt = `
       Analyze this image of a house for outdoor lighting placement.
-      ${focusTypes}
+      
+      STRICT INSTRUCTION: ${focusTypes}
+      
+      ALLOWED FIXTURE TYPES: ${allowedTypes.join(', ')} ONLY.
+      DO NOT SUGGEST ANY OTHER FIXTURE TYPES.
 
       Return a JSON object with a single key "fixtures" containing an array of objects.
       Each object must have:
       - "x": number (0-100 percentage of image width)
       - "y": number (0-100 percentage of image height)
-      - "type": string (one of: 'up', 'path', 'gutter')
+      - "type": string (MUST be one of: ${allowedTypes.map(t => `'${t}'`).join(', ')})
       
       Rules:
       - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections).
@@ -154,13 +185,15 @@ export const detectFixtureLocations = async (
     const parsed = JSON.parse(jsonText);
     if (!parsed.fixtures || !Array.isArray(parsed.fixtures)) return [];
 
-    // Convert to LightMarkers
-    return parsed.fixtures.map((f: any) => ({
+    // FILTER to only allowed types (safety check)
+    const filteredFixtures = parsed.fixtures.filter((f: any) => allowedTypes.includes(f.type));
+
+    return filteredFixtures.map((f: any) => ({
       id: Date.now().toString() + Math.random().toString(),
       x: f.x,
       y: f.y,
       type: f.type,
-      angle: f.type === 'path' ? 90 : 270, // Default angles: Path=Down, Up/Gutter=Up
+      angle: f.type === 'path' ? 90 : 270,
       throw: 15
     }));
 
@@ -180,6 +213,22 @@ export const generateLightingMockup = async (
 ): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+    // Parse allowed types from userInstructions
+    let allowedTypesInstruction = "";
+    
+    if (userInstructions.includes("Up Lights Only")) {
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS. Do NOT add any path lights or gutter lights.";
+    } 
+    else if (userInstructions.includes("Path Lights Only")) {
+      allowedTypesInstruction = "STRICT RULE: ONLY render PATH LIGHTS. Do NOT add any up lights or gutter lights.";
+    }
+    else if (userInstructions.includes("Up Lights + Paths")) {
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and PATH LIGHTS. Do NOT add any gutter lights.";
+    }
+    else if (userInstructions.includes("Up Lights + Gutters")) {
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and GUTTER MOUNT lights. Do NOT add any path lights.";
+    }
 
 
     // Ambient Light Logic
@@ -326,34 +375,37 @@ export const generateLightingMockup = async (
       : settings.intensity < 40 ? "Low Intensity: Subtle, mood-focused." 
       : "Medium Intensity: Balanced.";
 
-    const prompt = `
-      Transform the provided image into a professional lighting mockup.
+   const prompt = `
+  Transform the provided image into a professional lighting mockup.
 
-      Global Environment:
-      - Time of Day: ${timeOfDay}.
-      - Sky Requirement: **ALWAYS RENDER A VISIBLE MOON**. Phase: ${selectedMoonPhase}.
-      
-      ${placementInstruction}
+  ${allowedTypesInstruction}
 
-      ${userInstructionsBlock}
+  Global Environment:
 
-      ${feedbackBlock}
+  - Time of Day: ${timeOfDay}.
+  - Sky Requirement: **ALWAYS RENDER A VISIBLE MOON**. Phase: ${selectedMoonPhase}.
+  
+  ${placementInstruction}
 
-      Design Settings:
-      - Color Temperature: ${colorTemp.kelvin} (${colorTemp.description}).
-      - Fixture Brightness: ${intensityMap}
-      - Shadow Contrast: ${settings.shadowContrast}%
-      
-      Technical constraints:
-      - ${techSpecs.join('\n- ')}
-      - Architecture: PRESERVE the exact house structure and materials.
-      - CLEANUP: Remove all marker dots and vector lines from the source image.
-      
-      FINAL CHECK:
-      - Did the light STOP exactly where the vector line ended?
-      - Are there unrequested fixture types? REMOVE THEM.
-      - Are all guide lines erased?
-    `;
+  ${userInstructionsBlock}
+
+  ${feedbackBlock}
+
+  Design Settings:
+  - Color Temperature: ${colorTemp.kelvin} (${colorTemp.description}).
+  - Fixture Brightness: ${intensityMap}
+  - Shadow Contrast: ${settings.shadowContrast}%
+  
+  Technical constraints:
+  - ${techSpecs.join('\n- ')}
+  - Architecture: PRESERVE the exact house structure and materials.
+  - CLEANUP: Remove all marker dots and vector lines from the source image.
+  
+  FINAL CHECK:
+  - Did the light STOP exactly where the vector line ended?
+  - Are there unrequested fixture types? REMOVE THEM.
+  - Are all guide lines erased?
+`;
 
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
