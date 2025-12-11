@@ -17,4 +17,4 @@ export default defineConfig({
     // Polyfill process.env for the GoogleGenAI SDK to work without code changes
     'process.env': process.env
   }
-});1
+});
