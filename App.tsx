@@ -1023,11 +1023,10 @@ const App: React.FC = () => {
 
                {/* Refinement Sliders Section */}
                <div className="space-y-6">
-                   <Toggle 
-                      label="Nano Banana Pro (2K)" 
-                      checked={settings.ultraResolution} 
-                      onChange={(checked) => setSettings({...settings, ultraResolution: checked})} 
-                   />
+                   <div className="flex items-center justify-between py-2">
+                        <span className="text-[11px] font-medium text-gray-400">Resolution</span>
+                        <span className="text-[10px] font-bold text-[#F6B45A] bg-[#F6B45A]/10 px-2 py-1 rounded border border-[#F6B45A]/20">Nano Banana Pro 2K</span>
+                   </div>
                    <Slider 
                       label="Ambient Light" 
                       value={settings.ambientLight} 

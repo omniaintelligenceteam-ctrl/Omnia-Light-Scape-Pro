@@ -3,10 +3,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
+const API_KEY = 'AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA';
+
 const MODEL_NAME = 'gemini-3-pro-image-preview';
-// Using the same model for analysis as it has strong vision capabilities
 const ANALYSIS_MODEL_NAME = 'gemini-2.5-flash'; 
 const CHAT_MODEL_NAME = 'gemini-2.5-flash';
+
 
 export const checkApiKey = async (): Promise<boolean> => {
   // Always return true, assuming the developer has configured the API Key in environment variables.
@@ -23,8 +25,8 @@ export const chatWithAssistant = async (
   currentView: string
 ): Promise<string> => {
   try {
-    const apiKey = process.env.API_KEY;
-    const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
+    const ai = new GoogleGenAI({ apiKey: 'AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA' });
+
 
     const systemInstruction = `
       You are the AI Assistant for "Omnia's Light Scape PRO", a premium outdoor lighting design software.
@@ -42,7 +44,7 @@ export const chatWithAssistant = async (
         - "Manual Design": AI follows Architect Notes strictly.
         - "Light Options" (Sidebar): Adjust Color Temp (2700K-5000K), Intensity, Dark Sky mode.
       - **Projects**: Gallery of saved before/after designs.
-      - **Quotes**: Professional invoice generator. It AUTO-CALCULATES based on the design you just made.
+     - **Quotes**: Professional invoice generator. It AUTO-CALCULATES based on the design you just made.
       - **Settings**: Company profile, Logo upload, Billing (Stripe), Default preferences.
       
       DESIGN PROMPTING EXPERTISE:
@@ -93,7 +95,7 @@ export const detectFixtureLocations = async (
 ): Promise<LightMarker[]> => {
   try {
     const apiKey = process.env.API_KEY;
-    const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
+    const ai = new GoogleGenAI({ apiKey: apiKey || 'AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA' });
 
     let focusTypes = "";
     if (designPromptLabel.includes("Up Lights Only")) focusTypes = "Only identify locations for ground-mounted 'up' lights at base of walls, columns, and trees.";
@@ -177,8 +179,8 @@ export const generateLightingMockup = async (
   userInstructions: string = "" 
 ): Promise<string> => {
   try {
-    const apiKey = process.env.API_KEY;
-    const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+
 
     // Ambient Light Logic
     let timeOfDay = "Pitch Black Night (0% ambient)";
@@ -369,7 +371,7 @@ export const generateLightingMockup = async (
       config: {
         imageConfig: {
             aspectRatio: "16:9",
-            imageSize: settings.ultraResolution ? "2K" : "1K",
+            imageSize: "2K", // Forced 2K Resolution
         }
       },
     });
