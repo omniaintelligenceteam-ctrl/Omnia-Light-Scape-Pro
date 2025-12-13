@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
@@ -59,7 +60,7 @@ export const chatWithAssistant = async (
       - **Fixture Rules**: We ONLY use:
         1. Ground-Mounted Up Lights (base of walls/columns). RULES: NEVER on roof, concrete, or mounted onto the house structure. Must be in soft ground (mulch/grass).
         2. Path Lights (walkways).
-        3. Gutter Mounts (roofline/fascia).
+        3. Gutter Mounted Up Lights (roofline/fascia).
       - WE DO NOT USE: Soffit lights, floodlights, wall packs, or string lights (unless specifically Christmas theme).
       
       CURRENT USER CONTEXT:
@@ -107,35 +108,35 @@ export const detectFixtureLocations = async (
     let allowedTypes: string[] = [];
     
     if (designPromptLabel === "Up Lights Only") {
-      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, columns, and trees. DO NOT place any path lights or gutter lights.";
+      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, columns, and trees. DO NOT place any path lights or Gutter Mounted Up Lights.";
       allowedTypes = ['up'];
     } 
     else if (designPromptLabel === "Path Lights Only") {
-      focusTypes = "ONLY place PATH LIGHTS along walkways and driveways. DO NOT place any up lights or gutter lights.";
+      focusTypes = "ONLY place PATH LIGHTS along walkways and driveways. DO NOT place any up lights or Gutter Mounted Up Lights.";
       allowedTypes = ['path'];
     }
     else if (designPromptLabel === "Up Lights + Paths") {
-      focusTypes = "Place UP LIGHTS at the base of architecture AND PATH LIGHTS along walkways. DO NOT place any gutter lights.";
+      focusTypes = "Place UP LIGHTS at the base of architecture AND PATH LIGHTS along walkways. DO NOT place any Gutter Mounted Up Lights.";
       allowedTypes = ['up', 'path'];
     }
-    else if (designPromptLabel === "Up Lights + Gutters") {
-      focusTypes = "Place UP LIGHTS at the base of architecture AND GUTTER MOUNT lights on the roofline. DO NOT place any path lights.";
+    else if (designPromptLabel === "Up Lights + Gutter Mounted Up Lights") {
+      focusTypes = "Place UP LIGHTS at the base of architecture AND Gutter Mounted Up Lights on the roofline. DO NOT place any path lights.";
       allowedTypes = ['up', 'gutter'];
     }
-    else if (designPromptLabel === "Up + Gutter + Path Layout") {
-      focusTypes = "Place UP LIGHTS, PATH LIGHTS, and GUTTER MOUNT lights for a complete design.";
+    else if (designPromptLabel === "Up Lights + Gutter Mounted Up Lights + Path Lights") {
+      focusTypes = "Place UP LIGHTS, PATH LIGHTS, and Gutter Mounted Up Lights for a complete design.";
       allowedTypes = ['up', 'path', 'gutter'];
     }
     else if (designPromptLabel === "Christmas Theme") {
-      focusTypes = "Place UP LIGHTS at foundation with warm white/multi-color AND GUTTER MOUNT lights along all rooflines for a festive Christmas look. DO NOT place path lights.";
+      focusTypes = "Place UP LIGHTS at foundation with warm white/multi-color AND Gutter Mounted Up Lights along all rooflines for a festive Christmas look. DO NOT place path lights.";
       allowedTypes = ['up', 'gutter'];
     }
     else if (designPromptLabel === "Halloween Theme") {
-      focusTypes = "Place UP LIGHTS with orange/purple tones at foundation AND GUTTER MOUNT lights on roofline for a spooky Halloween look. DO NOT place path lights.";
+      focusTypes = "Place UP LIGHTS with orange/purple tones at foundation AND Gutter Mounted Up Lights on roofline for a spooky Halloween look. DO NOT place path lights.";
       allowedTypes = ['up', 'gutter'];
     }
     else {
-      focusTypes = "Place UP LIGHTS at architecture base, PATH LIGHTS along walks, GUTTER MOUNT lights on roofline.";
+      focusTypes = "Place UP LIGHTS at architecture base, PATH LIGHTS along walks, Gutter Mounted Up Lights on roofline.";
       allowedTypes = ['up', 'path', 'gutter'];
     }
 
@@ -156,7 +157,7 @@ export const detectFixtureLocations = async (
       Rules:
       - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections). MUST BE ON GROUND/SOIL. NEVER on roof, concrete, or mounted on house structure.
       - 'path' lights go along the edges of driveways or walkways (ground level).
-      - 'gutter' lights go on the roofline/fascia/gutter edge (high up).
+      - 'gutter' lights (Gutter Mounted Up Lights) go on the roofline/fascia/gutter edge (high up).
       - Be precise. Do not place markers in the sky or on windows.
       - Reality Check: Do not infer or hallucinate trees, parts of the home, side walkways, or driveways that are not clearly visible in the image.
       - Limit to 5-15 key fixtures to create a nice design.
@@ -226,16 +227,16 @@ export const generateLightingMockup = async (
     let allowedTypesInstruction = "";
     
     if (userInstructions.includes("Up Lights Only")) {
-      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS. Do NOT add any path lights or gutter lights.";
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS. Do NOT add any path lights or Gutter Mounted Up Lights.";
     } 
     else if (userInstructions.includes("Path Lights Only")) {
-      allowedTypesInstruction = "STRICT RULE: ONLY render PATH LIGHTS. Do NOT add any up lights or gutter lights.";
+      allowedTypesInstruction = "STRICT RULE: ONLY render PATH LIGHTS. Do NOT add any up lights or Gutter Mounted Up Lights.";
     }
     else if (userInstructions.includes("Up Lights + Paths")) {
-      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and PATH LIGHTS. Do NOT add any gutter lights.";
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and PATH LIGHTS. Do NOT add any Gutter Mounted Up Lights.";
     }
-    else if (userInstructions.includes("Up Lights + Gutters")) {
-      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and GUTTER MOUNT lights. Do NOT add any path lights.";
+    else if (userInstructions.includes("Up Lights + Gutter Mounted Up Lights")) {
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and Gutter Mounted Up Lights. Do NOT add any path lights.";
     }
 
 
@@ -274,11 +275,11 @@ export const generateLightingMockup = async (
         const yVal = (m.y / 100).toFixed(2);
         
         if (m.type === 'gutter') {
-          return `${index + 1}. GUTTER-MOUNT UPLIGHT at (x: ${xVal}, y: ${yVal}):
+          return `${index + 1}. GUTTER MOUNTED UP LIGHT at (x: ${xVal}, y: ${yVal}):
    - HARD RULE: This fixture MUST attach to the FIRST LEVEL gutter/fascia board along the roofline of the first story.
    - BAN: Do not place on second-story dormers, upper eaves, or windows. strictly first-level roofline.
    - TARGETING: Illuminates the architecture/house section DIRECTLY ABOVE the first story gutter.
-   - CONSTRAINT: Gutter mounts DO NOT go right up next to windows. They are strictly roofline/fascia fixtures.
+   - CONSTRAINT: Gutter Mounted Up Lights DO NOT go right up next to windows. They are strictly roofline/fascia fixtures.
    - The fixture must be visibly attached to the gutter edge, never floating.
    - Beam direction: strictly upward.
    - Beam angle: 60 degrees.
@@ -317,7 +318,7 @@ export const generateLightingMockup = async (
         STRICT TYPE EXCLUSION RULES (DO NOT HALLUCINATE):
         ${!hasUp ? '- NO Up-Lights allowed (none marked).' : ''}
         ${!hasPath ? '- NO Path-Lights allowed (none marked).' : ''}
-        ${!hasGutter ? '- NO Gutter-Mounts allowed (none marked).' : ''}
+        ${!hasGutter ? '- NO Gutter Mounted Up Lights allowed (none marked).' : ''}
         
         Final constraints (very important):
         - ROLE: You are a dumb rendering engine. You do not design. You only render dots.
@@ -325,7 +326,7 @@ export const generateLightingMockup = async (
         - NO SYMMETRY FIXING: If the user lights only the left side, the right side stays DARK.
         - BAN LIST: Do not generate any fixtures that look like floodlights, security lights, or wall-packs.
         - BAN LIST: Never attach lights to glass, windows, or window frames.
-        - Gutter-mounted uplights must stay anchored exactly to the FIRST LEVEL gutter / fascia along the roofline.
+        - Gutter Mounted Up Lights must stay anchored exactly to the FIRST LEVEL gutter / fascia along the roofline.
         - The only visible artificial light in the scene must come from the fixtures listed above.
         - Everything else remains a natural, realistic night environment.
         - VISUAL CLEANUP: Remove the colored marker dots and vector lines from the input image. The final result should look like a finished photograph.
