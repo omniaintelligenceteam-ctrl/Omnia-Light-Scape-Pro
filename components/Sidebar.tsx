@@ -41,8 +41,6 @@ interface SidebarProps {
   subscription: Subscription | null;
   onOpenPricing: () => void;
   onSave: () => void;
-  isChatOpen: boolean;
-  onToggleChat: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -51,9 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user, 
   subscription, 
   onOpenPricing,
-  onSave,
-  isChatOpen,
-  onToggleChat
+  onSave
 }) => {
   const isPro = subscription?.status === 'active';
 
@@ -83,13 +79,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             label="Quotes" 
             isActive={activeView === 'quotes'}
             onClick={() => onNavigate('quotes')}
-          />
-
-          <SidebarItem 
-            label="Assistant" 
-            isActive={isChatOpen}
-            onClick={onToggleChat}
-            isSpecial
           />
           
           {/* Settings: Moved Light Options here */}

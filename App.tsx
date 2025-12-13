@@ -10,7 +10,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { Chatbot } from './components/Chatbot';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from './constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem, FixturePricing } from './types';
-import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, PencilLine, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateLightingMockup, detectFixtureLocations } from './services/geminiService';
 import { createCheckoutSession, createPortalSession } from './services/stripeService';
 
@@ -57,6 +57,9 @@ const App: React.FC = () => {
   
   // Quote State
   const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
+
+  // Current Project Context (to update existing instead of creating new)
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
   const inputImageContainerRef = useRef<HTMLDivElement>(null);
   const resultImageContainerRef = useRef<HTMLDivElement>(null);
@@ -136,6 +139,10 @@ const App: React.FC = () => {
 
   // --- QUOTE GENERATION LOGIC ---
   const generateQuoteFromContext = () => {
+    // Check if we already have an active quote that we are editing
+    // If not, create a new one.
+    if (activeQuote && activeQuote.status === 'draft') return;
+
     // 1. Parse Markers
     let upCount = markers.filter(m => m.type === 'up').length;
     let pathCount = markers.filter(m => m.type === 'path').length;
@@ -215,10 +222,10 @@ const App: React.FC = () => {
         const pricing = getPricing('transformer');
         items.push({
             id: Date.now().toString() + 'trans',
-            description: pricing.name,
+            description: pricing.name, 
             details: pricing.description,
             quantity: 1,
-            unitPrice: pricing.unitPrice,
+            unitPrice: pricing.unitPrice, 
             total: pricing.unitPrice,
             type: 'fixture'
         });
@@ -240,6 +247,7 @@ const App: React.FC = () => {
 
     const newQuote: Quote = {
         id: Date.now().toString(),
+        projectId: currentProjectId || undefined,
         clientName: '',
         clientAddress: '',
         date: new Date().toLocaleDateString(),
@@ -299,6 +307,7 @@ const App: React.FC = () => {
     setUserInstructions("");
     setSelectedQuickPromptLabel(null);
     setActiveQuote(null);
+    setCurrentProjectId(null);
     
     // 3. Reset User Data
     setProjects([]);
@@ -355,26 +364,73 @@ const App: React.FC = () => {
     }
   };
 
+  // --- SAVE LOGIC ---
+  const saveProjectToStorage = (project: Project) => {
+      const allProjects = JSON.parse(localStorage.getItem('lumina_projects') || '[]');
+      // Remove existing version of this project if it exists (update)
+      const otherProjects = allProjects.filter((p: Project) => p.id !== project.id);
+      const updatedProjects = [...otherProjects, project];
+      
+      localStorage.setItem('lumina_projects', JSON.stringify(updatedProjects));
+      setProjects(updatedProjects.filter((p: Project) => p.userId === user?.id));
+  };
+
   const handleSaveProject = () => {
     if (!user || !uploadedImage || !generatedImage) {
         if (!generatedImage) alert("Generate a design first before saving.");
         return;
     }
+    
+    // Determine ID: use current if editing, else new
+    const idToUse = currentProjectId || Date.now().toString();
+
     const newProject: Project = {
-      id: Date.now().toString(),
+      id: idToUse,
       userId: user.id,
-      name: `Design ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+      name: currentProjectId 
+        ? projects.find(p => p.id === currentProjectId)?.name || `Design ${new Date().toLocaleDateString()}`
+        : `Design ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
       date: new Date().toLocaleDateString(),
       inputImage: uploadedImage,
       outputImage: generatedImage,
       markers: markers,
-      settings: settings
+      settings: settings,
+      quote: activeQuote || undefined // Include active quote if it exists
     };
-    const allProjects = JSON.parse(localStorage.getItem('lumina_projects') || '[]');
-    const updatedProjects = [...allProjects, newProject];
-    localStorage.setItem('lumina_projects', JSON.stringify(updatedProjects));
-    setProjects(prev => [...prev, newProject]);
+    
+    saveProjectToStorage(newProject);
+    setCurrentProjectId(idToUse);
     alert("Project saved successfully!");
+  };
+
+  const handleSaveQuote = () => {
+     // This function saves the QUOTE + THE PROJECT together.
+     if (!user || !activeQuote) return;
+
+     // 1. If we have images, we can save a full project
+     if (uploadedImage && generatedImage) {
+        const idToUse = currentProjectId || Date.now().toString();
+        
+        const fullProject: Project = {
+            id: idToUse,
+            userId: user.id,
+            name: activeQuote.clientName ? `${activeQuote.clientName} - Quote` : `Project & Quote ${new Date().toLocaleDateString()}`,
+            date: new Date().toLocaleDateString(),
+            inputImage: uploadedImage,
+            outputImage: generatedImage,
+            markers: markers,
+            settings: settings,
+            quote: activeQuote
+        };
+
+        saveProjectToStorage(fullProject);
+        setCurrentProjectId(idToUse);
+        alert("Quote and Project saved to Gallery!");
+     } else {
+        // Fallback: If for some reason they are editing a quote without an active design session (unlikely in this flow), just alert.
+        // In a real app, you might save just a Quote object to a separate table.
+        alert("Quote saved! (Note: Ensure you have a generated design to save it as a full project)");
+     }
   };
 
   const handleDeleteProject = (projectId: string) => {
@@ -382,14 +438,30 @@ const App: React.FC = () => {
     const updatedProjects = allProjects.filter((p: Project) => p.id !== projectId);
     localStorage.setItem('lumina_projects', JSON.stringify(updatedProjects));
     setProjects(prev => prev.filter(p => p.id !== projectId));
+    
+    if (currentProjectId === projectId) {
+        setCurrentProjectId(null);
+        setUploadedImage(null);
+        setGeneratedImage(null);
+        setMarkers([]);
+        setActiveQuote(null);
+    }
   };
 
-  const handleLoadProject = (project: Project) => {
+  const handleLoadProject = (project: Project, targetView: 'editor' | 'quotes' = 'editor') => {
     setUploadedImage(project.inputImage);
     setGeneratedImage(project.outputImage);
     setMarkers(project.markers);
     setSettings(project.settings);
-    setView('editor');
+    setCurrentProjectId(project.id);
+    
+    if (project.quote) {
+        setActiveQuote(project.quote);
+    } else {
+        setActiveQuote(null);
+    }
+    
+    setView(targetView);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,6 +478,8 @@ const App: React.FC = () => {
           setFeedbackStatus('none');
           setActiveTool('none');
           setAimingMarkerId(null);
+          setCurrentProjectId(null); // Reset project context on new upload
+          setActiveQuote(null);
           
           if (userSettings?.default_design_template) {
              setSelectedQuickPromptLabel(userSettings.default_design_template);
@@ -581,8 +655,6 @@ const App: React.FC = () => {
         subscription={subscription}
         onOpenPricing={() => setShowPricing(true)}
         onSave={handleSaveProject}
-        isChatOpen={isChatOpen}
-        onToggleChat={() => setIsChatOpen(!isChatOpen)}
       />
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full pb-16 md:pb-20">
@@ -617,7 +689,8 @@ const App: React.FC = () => {
                activeQuote={activeQuote}
                userSettings={userSettings}
                onUpdateQuote={setActiveQuote}
-               onSaveQuote={() => { alert("Quote Saved!"); }}
+               onSaveQuote={handleSaveQuote}
+               onCreateQuote={generateQuoteFromContext}
              />
           )}
 
@@ -634,6 +707,7 @@ const App: React.FC = () => {
                 setAppSettings={setSettings}
                 selectedTemp={selectedTemp}
                 setSelectedTemp={setSelectedTemp}
+                onToggleChat={() => setIsChatOpen(!isChatOpen)}
              />
           )}
 
@@ -703,7 +777,7 @@ const App: React.FC = () => {
                             value={userInstructions}
                             onChange={(e) => setUserInstructions(e.target.value)}
                             placeholder="Describe Specifics (Which Fixture, Number of fixtures, ect.)"
-                            className="w-full h-24 bg-white border border-gray-200 rounded-xl p-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] resize-none shadow-sm transition-all hover:border-gray-300"
+                            className="w-full h-16 bg-white border border-gray-200 rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#F6B45A] focus:border-[#F6B45A] resize-none shadow-sm transition-all hover:border-gray-300"
                          />
                          
                          <div className="space-y-2">
@@ -754,7 +828,7 @@ const App: React.FC = () => {
                         <button
                           onClick={() => runGeneration('auto')}
                           disabled={isGenerating || isAnalyzing}
-                          className="col-span-8 bg-[#111] text-white rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-lg hover:shadow-xl hover:scale-[1.01] disabled:opacity-70 disabled:hover:scale-100 group"
+                          className="col-span-12 bg-[#111] text-white rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-lg hover:shadow-xl hover:scale-[1.01] disabled:opacity-70 disabled:hover:scale-100 group"
                         >
                           {isGenerating ? (
                             <span className="flex items-center justify-center gap-2">
@@ -762,18 +836,9 @@ const App: React.FC = () => {
                             </span>
                           ) : (
                             <span className="flex items-center justify-center gap-2 group-hover:text-[#F6B45A] transition-colors">
-                              <Sparkles size={16} /> Auto-Design
+                              <Sparkles size={16} /> Generate Design
                             </span>
                           )}
-                        </button>
-                        <button
-                          onClick={() => runGeneration('manual')}
-                          disabled={isGenerating || isAnalyzing}
-                          className="col-span-4 bg-white border border-gray-200 text-[#111] rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] hover:border-[#111] hover:bg-gray-50 transition-all shadow-sm"
-                        >
-                          <span className="flex items-center justify-center gap-2">
-                             <PencilLine size={16} /> Manual Design
-                          </span>
                         </button>
                       </div>
                       

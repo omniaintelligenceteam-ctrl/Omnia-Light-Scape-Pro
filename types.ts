@@ -82,17 +82,6 @@ export interface TrialState {
   has_had_trial_before: boolean;
 }
 
-export interface Project {
-  id: string;
-  userId: string;
-  name: string;
-  date: string;
-  inputImage: string;
-  outputImage: string;
-  markers: LightMarker[];
-  settings: AppSettings;
-}
-
 // --- QUOTING SYSTEM ---
 
 export interface QuoteItem {
@@ -118,4 +107,16 @@ export interface Quote {
   total: number;
   notes: string;
   status: 'draft' | 'sent' | 'approved';
+}
+
+export interface Project {
+  id: string;
+  userId: string;
+  name: string;
+  date: string;
+  inputImage: string;
+  outputImage: string;
+  markers: LightMarker[];
+  settings: AppSettings;
+  quote?: Quote;
 }

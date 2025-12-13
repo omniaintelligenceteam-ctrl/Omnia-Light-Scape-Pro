@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Loader2, Mail, Lock, User as UserIcon, Sparkles } from 'lucide-react';
+import { ArrowRight, Loader2, Mail, Lock, User as UserIcon, Sparkles, ChevronRight } from 'lucide-react';
 import { User, UserSettings, Subscription, TrialState } from '../types';
 import { Logo } from './Logo';
 
@@ -179,153 +179,172 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white font-sans text-[#111] overflow-hidden">
+    <div className="min-h-screen w-full flex bg-[#FCFCFC] font-sans text-[#111] overflow-hidden selection:bg-[#F6B45A] selection:text-white">
       
       {/* Left Side - Form Area */}
-      <div className="w-full lg:w-[45%] xl:w-[40%] flex flex-col justify-center px-8 md:px-16 lg:px-24 xl:px-32 relative z-10 bg-white shadow-[20px_0_60px_-15px_rgba(0,0,0,0.05)]">
+      <div className="w-full lg:w-[480px] xl:w-[550px] flex flex-col bg-white border-r border-gray-100 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.02)] relative z-10">
           
-          <div className="absolute top-8 left-8 md:left-16">
-            <Logo className="h-8 md:h-10" />
+          {/* Header - Black Background, Centered Text */}
+          <div className="bg-[#111] py-8 px-8 flex items-center justify-center relative shadow-sm">
+             <div className="flex items-baseline gap-3">
+                <span className="font-serif text-4xl md:text-5xl font-bold text-[#F6B45A] tracking-tighter">Omnia</span>
+                <span className="font-serif italic text-lg md:text-xl font-bold tracking-[0.15em] text-gray-300 uppercase">Light Scape Pro</span>
+             </div>
+             
+             {/* Dev Bypass - Discreet Absolute Position */}
+             <button 
+                onClick={handleDevBypass}
+                className="absolute right-2 top-2 opacity-0 hover:opacity-100 transition-opacity text-[10px] text-gray-700 font-mono"
+             >
+                DEV
+             </button>
           </div>
 
-          {/* Dev Bypass Button */}
-          <button 
-             onClick={handleDevBypass}
-             className="absolute top-4 right-4 text-[9px] font-bold text-gray-300 hover:text-[#111] border border-transparent hover:border-gray-200 px-2 py-1 rounded transition-all uppercase tracking-widest"
-             title="Developer Auto-Login"
-          >
-             Dev Bypass
-          </button>
+          <div className="flex-1 flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto">
+             <div className="max-w-xs w-full mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <div className="mb-10 text-center lg:text-left">
+                    <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3 tracking-tight text-[#111] text-center">
+                    {isLogin ? 'Welcome back' : 'Start Designing'}
+                    </h1>
+                    <p className="text-gray-500 font-medium text-sm text-center">
+                    {isLogin 
+                        ? 'Enter your credentials to access your workspace.' 
+                        : 'Create your professional profile to get started.'}
+                    </p>
+                </div>
 
-          <div className="max-w-sm w-full mx-auto mt-12 md:mt-0 animate-in fade-in slide-in-from-bottom-8 duration-700">
-             <div className="mb-10">
-                <h1 className="text-4xl md:text-5xl font-serif font-medium mb-4 tracking-tight leading-[1.1]">
-                  {isLogin ? 'Welcome back.' : 'Design starts here.'}
-                </h1>
-                <p className="text-gray-500 font-medium text-sm leading-relaxed">
-                   {isLogin 
-                     ? 'Sign in to access your projects and quotes.' 
-                     : 'Create a professional account to generate AI lighting mockups in seconds.'}
-                </p>
-             </div>
-
-             <form onSubmit={handleSubmit} className="space-y-5">
-                {!isLogin && (
-                  <div className="space-y-1 group">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1 group-focus-within:text-[#F6B45A] transition-colors">Full Name</label>
-                    <div className="relative">
-                      <UserIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#111] transition-colors" />
-                      <input 
-                        type="text" 
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-transparent transition-all placeholder:text-gray-300"
-                        placeholder="e.g. Jane Doe"
-                      />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {!isLogin && (
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-[#111]">Full Name</label>
+                        <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <UserIcon size={16} className="text-gray-400 group-focus-within:text-[#111] transition-colors" />
+                        </div>
+                        <input 
+                            type="text" 
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg text-sm placeholder:text-gray-300 focus:outline-none focus:border-[#F6B45A] focus:ring-1 focus:ring-[#F6B45A] transition-all bg-white"
+                            placeholder="Jane Doe"
+                        />
+                        </div>
                     </div>
-                  </div>
-                )}
+                    )}
 
-                <div className="space-y-1 group">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1 group-focus-within:text-[#F6B45A] transition-colors">Email Address</label>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#111] transition-colors" />
-                    <input 
-                      type="email" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-transparent transition-all placeholder:text-gray-300"
-                      placeholder="name@company.com"
-                    />
-                  </div>
+                    <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-[#111]">Email</label>
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail size={16} className="text-gray-400 group-focus-within:text-[#111] transition-colors" />
+                        </div>
+                        <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg text-sm placeholder:text-gray-300 focus:outline-none focus:border-[#F6B45A] focus:ring-1 focus:ring-[#F6B45A] transition-all bg-white"
+                        placeholder="name@company.com"
+                        />
+                    </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-[#111]">Password</label>
+                        {isLogin && (
+                        <button type="button" className="text-[10px] font-bold text-gray-400 hover:text-[#111] transition-colors">
+                            Forgot Password?
+                        </button>
+                        )}
+                    </div>
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock size={16} className="text-gray-400 group-focus-within:text-[#111] transition-colors" />
+                        </div>
+                        <input 
+                        type="password" 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg text-sm placeholder:text-gray-300 focus:outline-none focus:border-[#F6B45A] focus:ring-1 focus:ring-[#F6B45A] transition-all bg-white"
+                        placeholder="••••••••"
+                        />
+                    </div>
+                    </div>
+
+                    {error && (
+                    <div className="p-3 bg-red-50 text-red-600 text-xs font-medium rounded-lg flex items-center gap-2 animate-in slide-in-from-top-1">
+                        <span className="w-1 h-1 rounded-full bg-red-600 block"></span>
+                        {error}
+                    </div>
+                    )}
+
+                    <button 
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-[#111] text-white rounded-lg py-3.5 font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-black transition-all hover:scale-[1.01] shadow-lg shadow-black/10 disabled:opacity-70 disabled:hover:scale-100 mt-6"
+                    >
+                    {loading ? (
+                        <Loader2 size={16} className="animate-spin text-[#F6B45A]" />
+                    ) : (
+                        <>
+                        {isLogin ? 'Sign In' : 'Create Account'} 
+                        </>
+                    )}
+                    </button>
+                </form>
+
+                <div className="mt-8 text-center">
+                <div className="relative mb-6">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                    <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-white px-2 text-gray-300">Or</span></div>
                 </div>
-
-                <div className="space-y-1 group">
-                  <div className="flex justify-between items-center ml-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#F6B45A] transition-colors">Password</label>
-                    {isLogin && <button type="button" className="text-[10px] font-bold text-gray-400 hover:text-[#111] transition-colors">Forgot?</button>}
-                  </div>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#111] transition-colors" />
-                    <input 
-                      type="password" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111] focus:border-transparent transition-all placeholder:text-gray-300"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs font-medium animate-in slide-in-from-top-2">
-                    {error}
-                  </div>
-                )}
 
                 <button 
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#111] text-white rounded-xl py-4 font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-black transition-all hover:scale-[1.01] shadow-xl shadow-black/20 disabled:opacity-70 disabled:hover:scale-100 mt-2"
+                    onClick={() => { setIsLogin(!isLogin); setError(null); }}
+                    className="group flex items-center justify-center gap-1 mx-auto text-xs text-gray-500 hover:text-[#111] transition-colors font-medium"
                 >
-                  {loading ? (
-                    <Loader2 size={16} className="animate-spin text-[#F6B45A]" />
-                  ) : (
-                    <>
-                      {isLogin ? 'Sign In' : 'Create Account'} 
-                      <ArrowRight size={14} className="text-[#F6B45A]" />
-                    </>
-                  )}
+                    {isLogin ? "New to Omnia? Create an account" : "Already have an account? Sign in"}
+                    <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
                 </button>
-             </form>
-
-             <div className="mt-8 text-center">
-               <div className="relative mb-6">
-                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-                 <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-white px-2 text-gray-300">Or</span></div>
-               </div>
-
-               <button 
-                 onClick={() => { setIsLogin(!isLogin); setError(null); }}
-                 className="text-xs text-gray-500 hover:text-[#111] transition-colors font-medium underline underline-offset-4"
-               >
-                 {isLogin ? "New to Omnia? Create an account" : "Already have an account? Sign in"}
-               </button>
+                </div>
              </div>
           </div>
           
-          <div className="absolute bottom-8 left-0 w-full text-center">
+          <div className="py-6 text-center">
              <span className="text-[10px] text-gray-300 font-medium tracking-widest uppercase">© 2024 Omnia Design Suite</span>
           </div>
       </div>
 
       {/* Right Side - Image Area */}
-      <div className="hidden lg:flex flex-1 relative bg-black overflow-hidden">
+      <div className="hidden lg:flex flex-1 relative bg-[#0a0a0a] overflow-hidden items-end p-16">
          {/* Background Image */}
          <div 
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-[20s] hover:scale-105"
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-[40s] hover:scale-110"
             style={{ 
-              backgroundImage: "url('https://images.unsplash.com/photo-1613545325278-f24b0cae1224?q=80&w=2070&auto=format&fit=crop')"
+              backgroundImage: "url('https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2666&auto=format&fit=crop')"
             }}
          />
          
-         {/* Dark Gradient Overlay */}
-         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10"></div>
+         {/* Cinematic Overlay */}
+         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
+         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent opacity-80"></div>
          
          {/* Content Overlay */}
-         <div className="absolute inset-0 p-16 flex flex-col justify-end text-white z-20">
-            <div className="max-w-lg mb-12 animate-in slide-in-from-bottom-10 duration-1000 delay-200">
-               <div className="w-12 h-1 bg-[#F6B45A] mb-8"></div>
-               <blockquote className="mb-8">
-                  <p className="text-3xl xl:text-4xl font-serif leading-snug italic text-gray-100">
-                    "Light creates ambience and feel of a place, as well as the expression of a structure."
-                  </p>
-               </blockquote>
-               <div className="flex items-center gap-3 opacity-80">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#F6B45A]">Architectural Lighting</span>
-                  <div className="w-1 h-1 bg-white rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Exterior Design</span>
-               </div>
+         <div className="relative z-20 max-w-xl animate-in slide-in-from-bottom-10 duration-1000 delay-200">
+            <div className="flex items-center gap-2 mb-6">
+               <Sparkles size={16} className="text-[#F6B45A]" />
+               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#F6B45A]">Light Scape Pro</span>
+            </div>
+            
+            <blockquote className="mb-8 border-l-2 border-[#F6B45A] pl-6 py-1">
+               <p className="text-3xl font-serif text-white leading-tight">
+                  "The difference between good and great design is often just a matter of lighting."
+               </p>
+            </blockquote>
+            
+            <div className="flex items-center gap-4 text-white/40">
+               <div className="h-px w-12 bg-white/20"></div>
+               <p className="text-[10px] uppercase tracking-widest font-medium">Architectural Visualization</p>
             </div>
          </div>
       </div>

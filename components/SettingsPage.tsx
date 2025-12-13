@@ -1,7 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { User, UserSettings, Subscription, TrialState, AppSettings, ColorTemperature, FixturePricing } from '../types';
 import { createPortalSession } from '../services/stripeService';
-import { Save, Loader2, CreditCard, Crown, Building, Lightbulb, ChevronDown, Mail, ShieldCheck, LogOut, Sliders, DollarSign, Tag, Upload, Trash2 } from 'lucide-react';
+import { Save, Loader2, CreditCard, Crown, Building, Lightbulb, ChevronDown, Mail, ShieldCheck, LogOut, Sliders, DollarSign, Tag, Upload, Trash2, MessageCircle } from 'lucide-react';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from '../constants';
 import { Slider } from './Slider';
 import { Toggle } from './Toggle';
@@ -18,6 +19,7 @@ interface SettingsPageProps {
   setAppSettings: (s: AppSettings) => void;
   selectedTemp: ColorTemperature;
   setSelectedTemp: (t: ColorTemperature) => void;
+  onToggleChat: () => void;
 }
 
 interface SettingsSectionProps {
@@ -79,7 +81,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   appSettings,
   setAppSettings,
   selectedTemp,
-  setSelectedTemp
+  setSelectedTemp,
+  onToggleChat
 }) => {
   const [loading, setLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
@@ -186,10 +189,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
       <div className="max-w-6xl mx-auto px-12 py-16 relative z-10 pb-32">
         
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-[#111] mb-2">Settings</h1>
-          <p className="text-gray-400 font-medium text-sm tracking-wide">Manage your professional profile and workspace preferences.</p>
+        {/* Header with Assistant Bubble */}
+        <div className="mb-12 flex justify-between items-start">
+          <div>
+              <h1 className="text-4xl font-bold tracking-tight text-[#111] mb-2">Settings</h1>
+              <p className="text-gray-400 font-medium text-sm tracking-wide">Manage your professional profile and workspace preferences.</p>
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">AI Assistant</span>
+            <button 
+              onClick={onToggleChat}
+              className="w-14 h-14 bg-[#111] text-[#F6B45A] rounded-full shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:scale-110 hover:bg-[#F6B45A] hover:text-[#111] transition-all duration-300 group"
+              title="Open AI Assistant"
+            >
+               <MessageCircle size={26} strokeWidth={1.5} className="group-hover:fill-current transition-all" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">

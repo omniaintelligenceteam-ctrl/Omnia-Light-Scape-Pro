@@ -1,27 +1,33 @@
 
 import React, { useState, useEffect } from 'react';
 import { Quote, QuoteItem, UserSettings } from '../types';
-import { Printer, Save, Plus, Trash2, Calculator, DollarSign, Calendar, MapPin, User as UserIcon } from 'lucide-react';
+import { Save, Plus, Trash2, Calculator, DollarSign, Calendar, MapPin, User as UserIcon } from 'lucide-react';
 
 interface QuotesProps {
   activeQuote: Quote | null;
   userSettings: UserSettings | null;
   onUpdateQuote: (quote: Quote) => void;
   onSaveQuote: () => void;
+  onCreateQuote: () => void;
 }
 
-export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpdateQuote, onSaveQuote }) => {
+export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpdateQuote, onSaveQuote, onCreateQuote }) => {
   if (!activeQuote) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-[#FDFCFB] text-[#111] p-8 text-center">
-        <div className="w-20 h-20 rounded-3xl bg-white border border-gray-100 flex items-center justify-center mb-6 shadow-xl shadow-black/5">
-           <Calculator size={32} className="opacity-30 text-[#111]" />
+        <div className="w-24 h-24 rounded-[32px] bg-white border border-gray-100 flex items-center justify-center mb-8 shadow-2xl shadow-black/5">
+           <Calculator size={40} className="opacity-20 text-[#111]" />
         </div>
-        <h3 className="text-lg font-bold text-[#111] uppercase tracking-widest mb-2">No Active Quote</h3>
-        <p className="text-sm text-[#111] max-w-md">
-          Go to the <b>Mockups</b> tab, design a lighting plan, and fill out the "Architect Notes". 
-          Then return here to see your auto-generated quote.
+        <h3 className="text-2xl font-bold text-[#111] tracking-tight mb-3">Project Quote</h3>
+        <p className="text-gray-400 font-medium text-sm mb-8 max-w-xs mx-auto">
+           Create a professional proposal for your lighting design project.
         </p>
+        <button 
+          onClick={onCreateQuote}
+          className="bg-[#111] text-white px-10 py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] hover:bg-black hover:scale-105 transition-all shadow-xl shadow-black/20 flex items-center gap-3"
+        >
+          <Plus size={16} /> Create New Quote
+        </button>
       </div>
     );
   }
@@ -88,16 +94,10 @@ export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpd
            </div>
            <div className="flex gap-3">
               <button 
-                onClick={() => window.print()}
-                className="bg-white border border-gray-200 text-[#111] px-5 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-gray-50 flex items-center gap-2 shadow-sm"
-              >
-                <Printer size={14} /> Print PDF
-              </button>
-              <button 
                 onClick={onSaveQuote}
                 className="bg-[#111] text-white px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-black flex items-center gap-2 shadow-lg shadow-black/10 hover:scale-105 transition-transform"
               >
-                <Save size={14} /> Save Quote
+                <Save size={14} /> Save Project
               </button>
            </div>
         </div>
@@ -189,21 +189,21 @@ export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpd
 
            {/* Line Items Table */}
            <div className="mb-8">
+              {/* Header Grid - 12 Columns */}
               <div className="grid grid-cols-12 gap-4 pb-2 mb-2 hidden md:grid">
                  <div className="col-span-6 text-[12px] font-bold text-[#111]">Product / Service</div>
-                 <div className="col-span-2 text-[12px] font-bold text-[#111]">Qty.</div>
+                 <div className="col-span-1 text-[12px] font-bold text-[#111]">Qty.</div>
                  <div className="col-span-2 text-[12px] font-bold text-[#111]">Unit Price</div>
-                 <div className="col-span-2 text-[12px] font-bold text-[#111]">Total</div>
+                 <div className="col-span-3 text-[12px] font-bold text-[#111]">Total</div>
               </div>
 
               <div className="space-y-3">
                  {activeQuote.items.map((item) => (
                     <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 items-start group border-b md:border-none border-gray-100 pb-4 md:pb-0">
                        
-                       {/* Product / Service Column */}
+                       {/* Product / Service Column (Span 6) */}
                        <div className="col-span-1 md:col-span-6 space-y-2">
                           <label className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-400">Description</label>
-                          {/* Title Input */}
                           <input 
                              type="text" 
                              value={item.description}
@@ -211,7 +211,6 @@ export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpd
                              className="w-full bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-[#111] focus:outline-none focus:border-black transition-colors font-sans"
                              placeholder="Item Name"
                           />
-                          {/* Details Textarea */}
                           <div className="relative">
                             <textarea
                                value={item.details || ''}
@@ -225,53 +224,56 @@ export const Quotes: React.FC<QuotesProps> = ({ activeQuote, userSettings, onUpd
                           </div>
                        </div>
 
-                       <div className="col-span-1 md:col-span-6 grid grid-cols-3 gap-3">
-                           {/* Qty Column */}
-                           <div className="col-span-1 md:col-span-4">
-                              <label className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">Qty</label>
+                       {/* Qty Column (Span 1) */}
+                       <div className="col-span-1 md:col-span-1">
+                          <label className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">Qty</label>
+                          <input 
+                             type="number" 
+                             value={item.quantity}
+                             onChange={(e) => handleItemChange(item.id, 'quantity', Number(e.target.value))}
+                             className="w-full h-9 bg-white border border-gray-200 rounded-md px-3 py-1.5 text-sm text-[#111] focus:outline-none focus:border-black font-sans"
+                          />
+                       </div>
+
+                       {/* Unit Price Column (Span 2) */}
+                       <div className="col-span-1 md:col-span-2">
+                          <label className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">Price</label>
+                          <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#111]">$</span>
                               <input 
                                  type="number" 
-                                 value={item.quantity}
-                                 onChange={(e) => handleItemChange(item.id, 'quantity', Number(e.target.value))}
-                                 className="w-full bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-[#111] focus:outline-none focus:border-black font-sans"
+                                 value={item.unitPrice}
+                                 onChange={(e) => handleItemChange(item.id, 'unitPrice', Number(e.target.value))}
+                                 className="w-full h-9 bg-white border border-gray-200 rounded-md pl-6 pr-3 py-1.5 text-sm text-[#111] focus:outline-none focus:border-black font-sans"
                               />
-                           </div>
+                          </div>
+                       </div>
 
-                           {/* Unit Price Column */}
-                           <div className="col-span-1 md:col-span-4 relative">
-                              <label className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">Price</label>
-                              <div className="relative">
-                                  <span className="absolute left-3 top-2 text-sm text-[#111]">$</span>
-                                  <input 
-                                     type="number" 
-                                     value={item.unitPrice}
-                                     onChange={(e) => handleItemChange(item.id, 'unitPrice', Number(e.target.value))}
-                                     className="w-full bg-white border border-gray-200 rounded-md pl-6 pr-3 py-2 text-sm text-[#111] focus:outline-none focus:border-black font-sans"
-                                  />
-                              </div>
-                           </div>
-
-                           {/* Total Column & Delete */}
-                           <div className="col-span-1 md:col-span-4 space-y-2">
+                       {/* Total Column (Span 3) - Flex container to include Delete button */}
+                       <div className="col-span-1 md:col-span-3 flex items-center gap-2">
+                          <div className="flex-1 space-y-2">
                               <label className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">Total</label>
                               <div className="relative">
-                                  <span className="absolute left-3 top-2 text-sm text-[#111]">$</span>
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#111]">$</span>
                                   <input 
                                      type="text" 
                                      readOnly
                                      value={item.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                     className="w-full bg-white border border-gray-200 rounded-md pl-6 pr-3 py-2 text-sm text-[#111] focus:outline-none font-sans"
+                                     className="w-full h-9 bg-white border border-gray-200 rounded-md pl-6 pr-3 py-1.5 text-sm text-[#111] focus:outline-none font-sans"
                                   />
                               </div>
-                              <div className="flex justify-end">
-                                <button 
-                                    onClick={() => deleteItem(item.id)}
-                                    className="text-xs text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1 rounded-md transition-colors"
-                                >
-                                    Delete
-                                </button>
-                              </div>
-                           </div>
+                          </div>
+                          
+                          {/* Delete Icon Button */}
+                          <div className="pt-0 md:pt-0">
+                              <button 
+                                onClick={() => deleteItem(item.id)}
+                                className="w-9 h-9 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                title="Delete Item"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                          </div>
                        </div>
                        
                     </div>
