@@ -179,18 +179,18 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white font-sans text-[#111]">
-        {/* Left Side (Form) */}
-        <div className="w-full lg:w-[520px] xl:w-[580px] flex flex-col relative z-10 bg-white border-r border-gray-100 shadow-[20px_0_40px_-15px_rgba(0,0,0,0.02)]">
+    <div className="min-h-screen w-full flex items-center justify-center bg-black font-sans text-[#111] p-4">
+        {/* Centered Card */}
+        <div className="w-full max-w-[500px] flex flex-col relative z-10 bg-white shadow-[0_40px_100px_-15px_rgba(255,255,255,0.1)] rounded-[32px] overflow-hidden border border-gray-800">
             
-            {/* Header - Matches Screenshot */}
-            <div className="bg-[#111] h-32 flex items-center justify-center shrink-0 relative">
+            {/* Header */}
+            <div className="bg-[#111] h-36 flex items-center justify-center shrink-0 relative">
                  <div className="flex items-baseline gap-3">
                     <span className="font-serif text-5xl md:text-6xl font-bold text-[#F6B45A] tracking-tight">Omnia</span>
                     <span className="font-serif italic font-semibold text-lg md:text-xl tracking-[0.15em] text-white uppercase ml-1">Light Scape Pro</span>
                  </div>
                  
-                 {/* Dev Bypass Button - Top Right of Panel */}
+                 {/* Dev Bypass Button */}
                  <button 
                     onClick={handleDevBypass}
                     className="absolute top-4 right-4 opacity-0 hover:opacity-50 text-[10px] text-white/50 font-mono z-50 font-bold uppercase tracking-widest p-2"
@@ -200,50 +200,50 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 flex flex-col justify-center items-center px-8 md:px-16 py-8 overflow-y-auto">
-                <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="flex-1 flex flex-col justify-center items-center px-8 md:px-12 py-10">
+                <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
                     
-                    <div className="text-center mb-12">
-                        <h1 className="font-serif text-4xl md:text-6xl font-bold mb-4 text-[#111] tracking-tight">
+                    <div className="text-center mb-10">
+                        <h1 className="font-serif text-3xl md:text-4xl font-bold mb-3 text-[#111] tracking-tight">
                             {isLogin ? 'Welcome back' : 'Create account'}
                         </h1>
-                        <p className="text-gray-500 font-medium text-base leading-relaxed">
+                        <p className="text-gray-500 font-medium text-sm leading-relaxed">
                             {isLogin ? 'Enter your credentials to access your workspace.' : 'Start your 7-day free trial today.'}
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-5">
                         {!isLogin && (
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-widest text-[#111]">Full Name</label>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-[#111]">Full Name</label>
                                 <div className="relative">
                                     <input 
                                         type="text"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        className="w-full px-4 py-4 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium"
+                                        className="w-full px-4 py-3.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium"
                                         placeholder="Jane Doe"
                                     />
                                 </div>
                             </div>
                         )}
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase tracking-widest text-[#111]">Email</label>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-[#111]">Email</label>
                             <input 
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-4 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium"
+                                className="w-full px-4 py-3.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium"
                                 placeholder="name@company.com"
                             />
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
-                                <label className="text-xs font-bold uppercase tracking-widest text-[#111]">Password</label>
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-[#111]">Password</label>
                                 {isLogin && (
-                                    <button type="button" className="text-xs font-bold text-gray-400 hover:text-[#111] transition-colors">
+                                    <button type="button" className="text-[10px] font-bold text-gray-400 hover:text-[#111] transition-colors">
                                         Forgot Password?
                                     </button>
                                 )}
@@ -252,13 +252,13 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-4 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium tracking-widest"
+                                className="w-full px-4 py-3.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium tracking-widest"
                                 placeholder="••••••••"
                             />
                         </div>
 
                         {error && (
-                            <div className="text-red-600 text-sm font-bold text-center bg-red-50 p-3 rounded-lg flex items-center justify-center gap-2">
+                            <div className="text-red-600 text-xs font-bold text-center bg-red-50 p-3 rounded-lg flex items-center justify-center gap-2">
                                 <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
                                 {error}
                             </div>
@@ -267,46 +267,39 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                         <button 
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-[#111] text-white h-14 rounded-lg font-bold text-sm uppercase tracking-[0.2em] hover:bg-black transition-all active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-black/10 mt-6"
+                            className="w-full bg-[#111] text-white h-12 rounded-lg font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-black/10 mt-6"
                         >
-                            {loading && <Loader2 size={18} className="animate-spin text-[#F6B45A]" />}
+                            {loading && <Loader2 size={16} className="animate-spin text-[#F6B45A]" />}
                             {isLogin ? 'Sign In' : 'Sign Up'}
                         </button>
                     </form>
 
-                    <div className="my-10 relative flex items-center justify-center">
+                    <div className="my-8 relative flex items-center justify-center">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-gray-100"></div>
                         </div>
-                        <span className="relative bg-white px-4 text-xs text-gray-300 font-bold uppercase tracking-widest">Or</span>
+                        <span className="relative bg-white px-3 text-[10px] text-gray-300 font-bold uppercase tracking-widest">Or</span>
                     </div>
 
                     <div className="text-center">
                         <button 
                             onClick={() => { setIsLogin(!isLogin); setError(null); }}
-                            className="text-sm font-bold text-gray-400 hover:text-[#111] transition-colors inline-flex items-center gap-1.5"
+                            className="text-xs font-bold text-gray-400 hover:text-[#111] transition-colors inline-flex items-center gap-1.5"
                         >
                             {isLogin ? "New to Omnia? Create an account" : "Already have an account? Sign in"}
-                            <ArrowRight size={14} />
+                            <ArrowRight size={12} />
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Footer */}
-            <div className="py-8 text-center shrink-0 bg-white">
+            <div className="py-6 text-center shrink-0 bg-white border-t border-gray-50">
                  <p className="text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em]">
                     © 2024 Omnia Design Suite
                  </p>
             </div>
 
-        </div>
-
-        {/* Right Side (Image) */}
-        <div className="hidden lg:flex flex-1 bg-[#111] relative overflow-hidden items-center justify-center">
-             <div className="absolute inset-0 bg-cover bg-center opacity-70 transition-transform duration-[60s] hover:scale-105" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop')" }}></div>
-             <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent"></div>
-             <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent mix-blend-overlay"></div>
         </div>
     </div>
   );
