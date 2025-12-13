@@ -226,7 +226,7 @@ const App: React.FC = () => {
             details: pricing.description,
             quantity: 1,
             unitPrice: pricing.unitPrice, 
-            total: pricing.unitPrice,
+            total: pricing.unitPrice, 
             type: 'fixture'
         });
     } else {
@@ -407,30 +407,34 @@ const App: React.FC = () => {
      // This function saves the QUOTE + THE PROJECT together.
      if (!user || !activeQuote) return;
 
-     // 1. If we have images, we can save a full project
-     if (uploadedImage && generatedImage) {
-        const idToUse = currentProjectId || Date.now().toString();
-        
-        const fullProject: Project = {
-            id: idToUse,
-            userId: user.id,
-            name: activeQuote.clientName ? `${activeQuote.clientName} - Quote` : `Project & Quote ${new Date().toLocaleDateString()}`,
-            date: new Date().toLocaleDateString(),
-            inputImage: uploadedImage,
-            outputImage: generatedImage,
-            markers: markers,
-            settings: settings,
-            quote: activeQuote
-        };
+     const idToUse = currentProjectId || Date.now().toString();
+     
+     // Determine Name
+     let pName = activeQuote.clientName 
+        ? `${activeQuote.clientName}` 
+        : `Quote ${new Date().toLocaleDateString()}`;
 
-        saveProjectToStorage(fullProject);
-        setCurrentProjectId(idToUse);
-        alert("Quote and Project saved to Gallery!");
+     if (generatedImage) {
+        pName += " - Design & Quote";
      } else {
-        // Fallback: If for some reason they are editing a quote without an active design session (unlikely in this flow), just alert.
-        // In a real app, you might save just a Quote object to a separate table.
-        alert("Quote saved! (Note: Ensure you have a generated design to save it as a full project)");
+        pName += " - Quote Only";
      }
+
+     const projectToSave: Project = {
+         id: idToUse,
+         userId: user.id,
+         name: pName,
+         date: new Date().toLocaleDateString(),
+         inputImage: uploadedImage || "https://placehold.co/800x600/f5f5f5/cccccc?text=No+Input+Image", 
+         outputImage: generatedImage || "https://placehold.co/800x600/1a1a1a/F6B45A?text=Quote+Only",
+         markers: markers,
+         settings: settings,
+         quote: activeQuote
+     };
+
+     saveProjectToStorage(projectToSave);
+     setCurrentProjectId(idToUse);
+     alert("Saved successfully to Projects!");
   };
 
   const handleDeleteProject = (projectId: string) => {
@@ -449,8 +453,13 @@ const App: React.FC = () => {
   };
 
   const handleLoadProject = (project: Project, targetView: 'editor' | 'quotes' = 'editor') => {
-    setUploadedImage(project.inputImage);
-    setGeneratedImage(project.outputImage);
+    // Only set images if they are real base64 data, not placeholder URLs
+    // This allows the editor to handle "Quote Only" projects gracefully (resetting images) or showing them
+    const isPlaceholderInput = project.inputImage.includes('placehold.co');
+    const isPlaceholderOutput = project.outputImage.includes('placehold.co');
+
+    setUploadedImage(isPlaceholderInput ? null : project.inputImage);
+    setGeneratedImage(isPlaceholderOutput ? null : project.outputImage);
     setMarkers(project.markers);
     setSettings(project.settings);
     setCurrentProjectId(project.id);
