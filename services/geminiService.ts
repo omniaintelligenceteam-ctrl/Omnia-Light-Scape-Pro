@@ -48,8 +48,7 @@ export const chatWithAssistant = async (
       - **Mockups (Editor)**: The main screen. Users upload a daytime photo. 
         - "Architect Notes": Text box for specific instructions.
         - "Quick Prompts": One-click presets (Up Lights Only, Christmas Theme, etc).
-        - "Auto-Design": AI decides placement.
-        - "Manual Design": AI follows Architect Notes strictly.
+        - "Auto-Design": Generate what in the text box. If blank AI decides placement.
         - "Light Options" (Sidebar): Adjust Color Temp (2700K-5000K), Intensity, Dark Sky mode.
       - **Projects**: Gallery of saved before/after designs.
      - **Quotes**: Professional invoice generator. It AUTO-CALCULATES based on the design you just made.
@@ -61,7 +60,7 @@ export const chatWithAssistant = async (
         1. Ground-Mounted Up Lights (base of walls/columns). RULES: NEVER on roof, concrete, or mounted onto the house structure. Must be in soft ground (mulch/grass).
         2. Path Lights (walkways).
         3. Gutter Mounted Up Lights (roofline/fascia).
-      - WE DO NOT USE: Soffit lights, floodlights, wall packs, or string lights (unless specifically Christmas theme).
+      - WE DO NOT USE: Soffit lights, floodlights, wall packs, or string lights 
       
       CURRENT USER CONTEXT:
       The user is currently viewing the "${currentView}" screen.
@@ -307,10 +306,9 @@ export const generateLightingMockup = async (
         return '';
       }).join('\n\n');
 
-      placementInstruction = `
+        placementInstruction = `
         MODE: STRICT MANUAL COORDINATE PLACEMENT (RENDERING ENGINE ONLY).
         
-        Input image contains visible colored dots and vector lines serving as precise anchors.
         
         LIST OF FIXTURES TO RENDER:
         ${fixtureList}
@@ -321,7 +319,7 @@ export const generateLightingMockup = async (
         ${!hasGutter ? '- NO Gutter Mounted Up Lights allowed (none marked).' : ''}
         
         Final constraints (very important):
-        - ROLE: You are a dumb rendering engine. You do not design. You only render dots.
+        - ROLE: You are a rendering engine. Only render what is prompted and that exact location. If nothing is seleted and not architect notes generate a beautifil lit home. 
         - BLACKOUT RULE: If a section of the house/yard has no dot, it IS PITCH BLACK. Zero ambient fill.
         - NO SYMMETRY FIXING: If the user lights only the left side, the right side stays DARK.
         - BAN LIST: Do not generate any fixtures that look like floodlights, security lights, or wall-packs.
@@ -341,6 +339,7 @@ export const generateLightingMockup = async (
         Analyze the architecture and landscaping. Intelligently place:
         1. Up-lights at the base of key columns and architectural features (full height of the feature). NOTE: Up-lights must be on the ground, never on roof or concrete.
         2. Path lights along walkways and garden borders.
+        3. Gutter Mounted Up lights connect to the gutter and shine upwards to hit dormers and architectural features directly under them and (full height of the feature) above the first story. Never shining on only the roof
         3. Ensure a balanced, professional composition with 60 degree beam spreads.
       `;
     }
@@ -372,10 +371,8 @@ export const generateLightingMockup = async (
       If the user says "brighter", increase intensity significantly.
       
       INTEGRATION INSTRUCTION:
-      The user may have placed new colored marker dots on the image to specify EXACT locations for new lights.
-      INTEGRATE these new markers into the design immediately.
-      If text feedback says "add light here" and a dot is present, use the dot's location.
-      NOTE: The input image may contain NEW marker dots added by the user as part of this correction. Ensure these new markers are rendered.
+      If text feedback says "add light here" or "remove light there" add or remove light in that location.
+      NOTE: The feedback may contain locations on where they want to add or remove lights.
       `;
     }
 

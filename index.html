@@ -2,51 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Omnia's LightScape Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600;1,700;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
               serif: ['"Playfair Display"', 'serif'],
             },
             colors: {
-              accent: '#F6B45A', // Updated to Brand Gold
-              swiss: {
-                50: '#F9F9F9',
-                100: '#F0F0F0',
-                200: '#E0E0E0',
-                300: '#C0C0C0',
-                900: '#111111',
-              }
-            },
-            letterSpacing: {
-              'swiss': '0.05em',
+              accent: '#F6B45A', 
             }
           }
         }
       }
     </script>
     <style>
-      /* Custom Scrollbar for Webkit */
+      body {
+        background-color: #f3f4f6;
+        color: #111827;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      /* Custom scrollbar */
       ::-webkit-scrollbar {
-        width: 6px;
+        width: 8px;
+        height: 8px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #333; /* Darker thumb for dark mode feel */
-        border-radius: 3px;
+        background: #cbd5e1;
+        border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #F6B45A; /* Gold hover */
+        background: #94a3b8;
       }
     </style>
   <script type="importmap">
