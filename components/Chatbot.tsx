@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Sparkles, X } from 'lucide-react';
-import { chatWithAssistant } from '../services/geminiService';
+import { chatWithAssistant } from '../geminiService';
+
 
 interface Message {
   id: string;

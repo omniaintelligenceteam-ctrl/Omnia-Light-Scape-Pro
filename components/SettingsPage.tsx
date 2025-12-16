@@ -1,7 +1,6 @@
 
 import React, { useState, useRef } from 'react';
 import { User, UserSettings, Subscription, TrialState, AppSettings, ColorTemperature, FixturePricing } from '../types';
-import { createPortalSession } from '../services/stripeService';
 import { Save, Loader2, CreditCard, Crown, Building, Lightbulb, ChevronDown, Mail, ShieldCheck, LogOut, Sliders, DollarSign, Tag, Upload, Trash2, MessageCircle } from 'lucide-react';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from '../constants';
 import { Slider } from './Slider';
@@ -140,17 +139,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setLoading(false);
   };
 
-  const handleManageBilling = async () => {
-    setBillingLoading(true);
-    try {
-      const { url } = await createPortalSession(user.id);
-      alert(`[MOCK] Redirecting to Stripe Customer Portal...\n${url}`);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBillingLoading(false);
-    }
+   const handleManageBilling = async () => {
+    // Replace this link with your actual Customer Portal link from Stripe Dashboard
+    const BILLING_PORTAL_LINK = "https://billing.stripe.com/p/login/YOUR_LINK_HERE";
+    window.open(BILLING_PORTAL_LINK, '_blank');
   };
+
 
   const updatePricingItem = (index: number, field: keyof FixturePricing, value: any) => {
      const newConfig = [...pricingConfig];

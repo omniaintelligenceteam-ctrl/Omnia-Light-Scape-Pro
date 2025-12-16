@@ -10,8 +10,7 @@ import { Chatbot } from './components/Chatbot';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from './constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem, FixturePricing } from './types';
 import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
-import { generateLightingMockup, detectFixtureLocations } from './services/geminiService';
-import { createCheckoutSession, createPortalSession } from './services/stripeService';
+import { generateLightingMockup, detectFixtureLocations } from './geminiService';
 
 const App: React.FC = () => {
   // Auth State
@@ -330,7 +329,8 @@ const App: React.FC = () => {
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!user) return;
     try {
-      const { sessionId, url } = await createCheckoutSession(user.id, plan);
+      const sessionId = "mock_session";
+const url = "https://example.com";
       console.log("Stripe Session Created:", sessionId, url);
       alert(`[MOCK] Redirecting to Stripe Checkout...\n\n(Simulating successful payment and return)`);
       const updatedSub: Subscription = {
@@ -356,7 +356,7 @@ const App: React.FC = () => {
   const handleManageBilling = async () => {
     if (!user) return;
     try {
-        const { url } = await createPortalSession(user.id);
+        const url = "https://example.com";
         alert(`[MOCK] Redirecting to Customer Portal...\n${url}`);
     } catch (e) {
         console.error(e);
