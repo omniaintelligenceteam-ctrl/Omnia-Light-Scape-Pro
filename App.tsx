@@ -751,17 +751,18 @@ FINAL CHECKLIST (must pass):
 - No guide dots/lines remain in output.
 `.trim();
 
-    return {
-      model: IMAGE_MODEL_NAME,
-      contents: {
-        parts: [{ text: prompt }, { inlineData: { mimeType: mimeType || "image/png", data: base64 } }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-          imageSize: settings.ultraResolution ? "4K" : "2K",
-        },
-      },
+        return {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType: mimeType || "image/png", data: base64 } }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseModalities: ["image", "text"]
+      }
     };
   }
 
