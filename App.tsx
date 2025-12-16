@@ -751,7 +751,7 @@ FINAL CHECKLIST (must pass):
 - No guide dots/lines remain in output.
 `.trim();
 
-        return {
+          return {
       contents: [
         {
           parts: [
@@ -761,9 +761,13 @@ FINAL CHECKLIST (must pass):
         }
       ],
       generationConfig: {
-        responseModalities: ["image", "text"]
+        responseModalities: ["image", "text"],
+        responseMimeType: "image/png",
+        // Nano Banana Pro supports parameters for aspect ratio/quality if needed,
+        // but keeping it simple ensures it works first.
       }
     };
+
   }
 
   // --- GENERATION ---
