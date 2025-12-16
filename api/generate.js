@@ -12,9 +12,6 @@ export default async function handler(req, res) {
   try {
     const { payload } = req.body;
     
-    // Log what we're sending (for debugging)
-    console.log('Sending to Gemini:', JSON.stringify(payload).substring(0, 500));
-    
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${API_KEY}`,
       {
@@ -26,11 +23,6 @@ export default async function handler(req, res) {
     
     const data = await response.json();
     
-    // Log the response (for debugging)
-    console.log('Gemini response status:', response.status);
-    console.log('Gemini response:', JSON.stringify(data).substring(0, 1000));
-    
-    // Check for errors from Google
     if (data.error) {
       return res.status(400).json({ error: data.error.message || 'Gemini API error' });
     }
