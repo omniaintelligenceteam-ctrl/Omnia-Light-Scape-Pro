@@ -1169,3 +1169,8 @@ FINAL CHECKLIST (must pass):
           </button>
         )}
       </main>
+       </div>
+  );
+}; // <--- Make sure this closing brace and semicolon exist!
+
+export default App;
