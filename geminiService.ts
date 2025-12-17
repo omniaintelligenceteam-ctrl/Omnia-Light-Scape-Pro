@@ -29,24 +29,18 @@ export const chatWithAssistant = async (
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const systemInstruction = `
-      You are the AI Assistant for "Omnia's Light Scape PRO", a premium outdoor lighting design software.
+      You are the expert Lighting Designer for "Omnia's Light Scape PRO".
       
-      YOUR GOALS:
-      1. Guide users on how to use the app features.
-      2. Help users write professional "Architect Notes" for the AI lighting generator.
-      3. Explain lighting terminology (Kelvin, Beam Spread, Fixture Types).
+      STRICT ARCHITECTURAL PRINCIPLES:
+      1. NO SOFFIT LIGHTS: Do not suggest or include soffit lights, recessed eave lights, or downlights unless explicitly requested by name.
+      2. DARK SECOND STORY: By default, the entire 2nd story, roofline, peaks, and dormers must remain COMPLETELY DARK. 
+      3. GUTTER LIGHTS: The second story is only lit if "Gutter Mounted Up Lights" are requested. These must be mounted ONLY on existing gutters from the first floor aimed up at the second story.
+      4. NO HALLUCINATIONS: Do not add extra rooms, windows, trees, or bushes that aren't in the original photo. Only light what exists.
       
-      DESIGN PRIORITIES (Hierarchy):
-      - PRIMARY: Lighting up each section of the house facade properly and evenly, including both the first and second stories. Use Ground Staked Up Lights for the 1st story and Gutter Mounted Up Lights for the 2nd story.
-      - SECONDARY: Lighting up landscape features like trees, statues, large stones, and unique architectural features using Ground Staked Up Lights.
-      - TERTIARY: Lighting up paths, walkways, and driveways with path lights.
-      
-      STRICT FIXTURE RULE: 
-      - By default, we use GROUND STAKED UP LIGHTS (ground-mounted), GUTTER MOUNTED UP LIGHTS, and PATH LIGHTS.
-      - GROUND STAKED UP LIGHTS should have a default beam spread of 45 degrees.
-      - DO NOT suggest or include SOFFIT LIGHTS or RECESSED DOWNLIGHTS unless the user specifically asks for them. 
-      
-      TONE: Professional, expert, and helpful.
+      FIXTURE TERMINOLOGY:
+      - "Ground Staked Up Lights": Ground-mounted fixtures for 1st floor walls and trees.
+      - "Gutter Mounted Up Lights": Mounted on 1st floor gutters for 2nd floor accents.
+      - "Path Lights": Low post-mounted lights for walkways.
     `;
 
     const contents = history.map(msg => ({
@@ -89,38 +83,27 @@ export const generateLightingMockup = async (
     const intensityStr = settings.intensity > 80 ? "High" : settings.intensity < 40 ? "Subtle" : "Standard";
     
     const prompt = `
-      Transform this daytime house photo into a photorealistic night-time lighting mockup. 
-      Follow this design hierarchy strictly:
+      Transform this daytime house photo into a professional night-time lighting mockup. 
       
-      1. PRIMARY FOCUS: Evenly and professionally light up every section of the house facade. Ensure both the 1st story and 2nd story architectural features are perfectly illuminated. 
-         - Use GROUND STAKED UP LIGHTS (ground-mounted) for 1st story features.
-         - Use GUTTER MOUNTED UP LIGHTS for 2nd story features.
-         - All up-lighting should use a focused 45-degree beam spread unless noted.
-      2. SECONDARY FOCUS: Highlight landscape features including trees, statues, large stones, and unique garden elements using GROUND STAKED UP LIGHTS.
-      3. TERTIARY FOCUS: Illuminate paths and walkways for safety and elegance using post-mounted path lights.
+      CRITICAL DESIGN RESTRICTIONS (DO NOT DEVIATE):
+      1. NO HALLUCINATIONS: Do not add any extra sections to the home. Do not add landscape features (trees, stones, plants) that are not present in the original image. Only illuminate existing features.
+      2. NO SOFFIT LIGHTING: Absolutely NO recessed soffit lights or eave-mounted downlights. 
+      3. DARK UPPER FLOOR: The entire 2nd story, roofline, peaks, gables, and dormers must remain PITCH BLACK and UNLIT.
+         - EXCEPTION: Only illuminate the 2nd story if "Gutter Mounted Up Lights" are explicitly requested in the notes below.
+      4. FIRST STORY FOCUS: Use GROUND STAKED UP LIGHTS at the base of the home to wash the 1st floor facade and columns. Use a 45-degree beam spread.
+      5. LANDSCAPE: Use GROUND STAKED UP LIGHTS only on existing trees and stones shown in the photo.
       
-      STRICT FIXTURE EXCLUSION RULE:
-      - DO NOT generate SOFFIT LIGHTS, RECESSED DOWNLIGHTS, or any EAVES-MOUNTED FIXTURES unless they are explicitly requested in the ARCHITECT NOTES below.
-      - If they are not specifically asked for, you MUST NOT include them. Instead, use GROUND STAKED UP LIGHTS or GUTTER MOUNTED UP LIGHTS.
-      
-      ENVIRONMENT:
-      - Scene should be Night (${100 - settings.ambientLight}% darkness).
-      - Include a visible moon in the sky.
-      
-      LIGHTING SPECS:
+      TECHNICAL SPECS:
       - Fixture Color: ${colorTemp.kelvin} (${colorTemp.description}).
       - Light Intensity: ${intensityStr}.
-      - Shadow Contrast: ${settings.shadowContrast}%.
+      - Atmosphere: High-realism, luxury night scene.
       
-      ARCHITECT NOTES (Mandatory Instructions):
-      "${userInstructions || 'Create a balanced, professional lighting design using Ground Staked Up Lights, Gutter Mounted Up Lights, and Path Lights.'}"
+      ARCHITECT NOTES (Mandatory):
+      "${userInstructions || 'Focus on 1st story ground-staked up lighting. Keep 2nd story dark. No soffit lights.'}"
       
-      ${critiques.length > 0 ? `FIX IT (REQUIRED CORRECTIONS):\n${critiques.join('\n')}` : ''}
+      ${critiques.length > 0 ? `CORRECTIONS TO PREVIOUS MOCKUP:\n${critiques.join('\n')}` : ''}
       
-      OUTPUT RULE: 
-      - You MUST generate and return an image.
-      - Do not include text, UI elements, or markers in the output.
-      - Ensure high realism and preserve existing architecture perfectly.
+      OUTPUT: Return ONLY the processed image. No text or additional overlays.
     `;
 
     const response = await ai.models.generateContent({
@@ -154,11 +137,10 @@ export const generateLightingMockup = async (
 
     const textPart = response.text;
     if (textPart) {
-      console.warn("AI returned text instead of image:", textPart);
-      throw new Error(`The AI declined to generate the image. Reason: ${textPart}`);
+      throw new Error(`AI returned text: ${textPart}`);
     }
 
-    throw new Error("No image data found in response.");
+    throw new Error("No image data returned.");
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
