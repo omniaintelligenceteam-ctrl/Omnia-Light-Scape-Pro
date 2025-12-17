@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature, LightMarker } from "../types";
 
@@ -106,11 +107,11 @@ export const detectFixtureLocations = async (
     let allowedTypes: string[] = [];
     
     if (designPromptLabel === "Up Lights Only") {
-      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, windows, statues, columns, and trees. DO NOT place any path lights or Gutter Mounted Up Lights.";
+      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, columns, and trees. DO NOT place any path lights or Gutter Mounted Up Lights.";
       allowedTypes = ['up'];
     } 
     else if (designPromptLabel === "Path Lights Only") {
-      focusTypes = "ONLY place PATH LIGHTS along walkways. DO NOT place any up lights or Gutter Mounted Up Lights.";
+      focusTypes = "ONLY place PATH LIGHTS along walkways and driveways. DO NOT place any up lights or Gutter Mounted Up Lights.";
       allowedTypes = ['path'];
     }
     else if (designPromptLabel === "Up Lights + Paths") {
