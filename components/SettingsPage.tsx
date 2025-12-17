@@ -140,9 +140,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
    const handleManageBilling = async () => {
+    setBillingLoading(true);
     // Replace this link with your actual Customer Portal link from Stripe Dashboard
     const BILLING_PORTAL_LINK = "https://billing.stripe.com/p/login/YOUR_LINK_HERE";
     window.open(BILLING_PORTAL_LINK, '_blank');
+    setTimeout(() => setBillingLoading(false), 2000);
   };
 
 
@@ -509,7 +511,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
           </div>
 
-          {/* Right Column: Subscription (unchanged) */}
+          {/* Right Column: Subscription */}
           <div className="lg:col-span-4">
              <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] p-8 h-full flex flex-col transition-all duration-500 hover:shadow-[0_30px_60px_-15px_rgba(246,180,90,0.08)] relative overflow-hidden">
                 {/* Background Decor */}
@@ -540,11 +542,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           </p>
                        </div>
                        
-                       <div className="space-y-2 px-1 text-center">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Billing Date</p>
-                          <p className="font-mono text-sm text-[#111] font-bold">
-                            {new Date(subscription?.current_period_end || 0).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                          </p>
+                       <div className="space-y-4 px-1 text-center">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Billing Date</p>
+                            <p className="font-mono text-sm text-[#111] font-bold">
+                              {new Date(subscription?.current_period_end || 0).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                            </p>
+                          </div>
+                          
+                          <button 
+                            onClick={handleManageBilling}
+                            disabled={billingLoading}
+                            className="w-full bg-white border-2 border-gray-100 text-[#111] py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:border-[#111] hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            {billingLoading && <Loader2 size={12} className="animate-spin" />}
+                            Manage Billing
+                          </button>
                        </div>
                     </div>
                   ) : (
@@ -588,17 +601,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   )}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-gray-50 relative z-10">
-                  {isPro ? (
-                    <button 
-                      onClick={handleManageBilling}
-                      disabled={billingLoading}
-                      className="w-full bg-white border-2 border-gray-100 text-[#111] py-4 rounded-xl font-bold text-xs uppercase tracking-widest hover:border-[#111] hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
-                    >
-                      {billingLoading && <Loader2 size={14} className="animate-spin" />}
-                      Manage Billing
-                    </button>
-                  ) : (
+                {!isPro && (
+                  <div className="mt-8 pt-6 border-t border-gray-50 relative z-10">
                     <button 
                       onClick={onUpgrade}
                       className="w-full bg-[#111] text-white py-4 rounded-xl font-bold text-xs uppercase tracking-[0.15em] hover:bg-black group relative overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
@@ -608,8 +612,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         Upgrade to Pro <Crown size={14} className="text-[#F6B45A]" />
                       </span>
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
              </div>
           </div>
 

@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Neon Auth URL from environment variables
-const AUTH_URL = import.meta.env.VITE_NEON_AUTH_URL;
+// Fixed: Using process.env instead of import.meta.env to avoid TS errors as it is polyfilled in vite.config.ts
+const AUTH_URL = process.env.VITE_NEON_AUTH_URL;
 
 interface UserProfile {
   email: string;

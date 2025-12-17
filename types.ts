@@ -5,15 +5,16 @@ export interface ColorTemperature {
   description: string;
 }
 
+// Adding MarkerType and LightMarker for design markers functionality
 export type MarkerType = 'up' | 'path' | 'gutter';
 
 export interface LightMarker {
   id: string;
-  x: number; // percentage 0-100
-  y: number; // percentage 0-100
+  x: number;
+  y: number;
   type: MarkerType;
-  angle: number; // degrees (0-360)
-  throw: number; // length of the beam (percentage relative to image width)
+  angle: number;
+  throw: number;
 }
 
 export interface AppSettings {
@@ -55,9 +56,9 @@ export interface UserSettings {
   company_name?: string;
   logo_url?: string;
   default_color_temp: string; // e.g. '3000k'
-  default_beam_angle: number; // e.g. 60
-  default_fixture_type: MarkerType;
+  default_beam_angle: number; // e.g. 45
   default_design_template?: string; // Label of the Quick Prompt to use by default
+  default_fixture_type?: string; 
   fixture_pricing?: FixturePricing[];
 }
 
@@ -114,7 +115,8 @@ export interface Project {
   date: string;
   inputImage: string;
   outputImage: string;
-  markers: LightMarker[];
+  // Included markers in Project interface to support design state persistence
+  markers?: LightMarker[];
   settings: AppSettings;
   quote?: Quote;
 }

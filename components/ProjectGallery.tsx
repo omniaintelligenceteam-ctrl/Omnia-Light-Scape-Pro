@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Project } from '../types';
-import { Calendar, Trash2, ArrowRight, FileText, DollarSign, Plus } from 'lucide-react';
+import { Calendar, Trash2, DollarSign, Plus } from 'lucide-react';
 
 interface ProjectGalleryProps {
   projects: Project[];
@@ -95,7 +95,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ projects, onSele
                   <h3 className="font-bold text-[#111] text-sm tracking-tight leading-snug line-clamp-2">{project.name}</h3>
                 </div>
                 <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-                   <span>{project.date} • {project.markers.length} Fixtures</span>
+                   <span>{project.date}</span>
                 </p>
               </div>
               

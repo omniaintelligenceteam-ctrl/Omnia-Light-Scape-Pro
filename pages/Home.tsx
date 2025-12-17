@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Auth } from '../components/Auth';
@@ -10,7 +12,7 @@ import { Chatbot } from '../components/Chatbot';
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from '../constants';
 import { AppSettings, ColorTemperature, LightMarker, MarkerType, User, Project, Subscription, SubscriptionPlan, TrialState, UserSettings, Quote, QuoteItem, FixturePricing } from '../types';
 import { Upload, Download, Loader2, RefreshCw, AlertCircle, ArrowRight, MousePointer2, ArrowUpFromLine, CircleDot, ChevronsUp, X, Sparkles, ThumbsUp, ThumbsDown, Save, ArrowLeft, Maximize2, Quote as QuoteIcon, Palette, Sliders, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
-import { generateLightingMockup, detectFixtureLocations } from '../geminiService';
+import { generateLightingMockup } from '../geminiService';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 
@@ -398,6 +400,7 @@ const url = "https://example.com";
       date: new Date().toLocaleDateString(),
       inputImage: uploadedImage,
       outputImage: generatedImage,
+      // Fix: Ensure markers are included in project object
       markers: markers,
       settings: settings,
       quote: activeQuote || undefined // Include active quote if it exists
@@ -432,6 +435,7 @@ const url = "https://example.com";
          date: new Date().toLocaleDateString(),
          inputImage: uploadedImage || "https://placehold.co/800x600/f5f5f5/cccccc?text=No+Input+Image", 
          outputImage: generatedImage || "https://placehold.co/800x600/1a1a1a/F6B45A?text=Quote+Only",
+         // Fix: Ensure markers are included in project object
          markers: markers,
          settings: settings,
          quote: activeQuote
@@ -465,7 +469,8 @@ const url = "https://example.com";
 
     setUploadedImage(isPlaceholderInput ? null : project.inputImage);
     setGeneratedImage(isPlaceholderOutput ? null : project.outputImage);
-    setMarkers(project.markers);
+    // Fix: markers are now a member of Project, handled optionality
+    setMarkers(project.markers || []);
     setSettings(project.settings);
     setCurrentProjectId(project.id);
     
@@ -568,14 +573,7 @@ const url = "https://example.com";
     setAimingMarkerId(null);
     if (!critiqueList) setFeedbackStatus('none');
     try {
-      if (!apiKeyReady) {
-          // If we thought key was ready but it failed previously, error out
-          throw new Error("API_KEY_MISSING");
-      }
-      
       let imageToUse = uploadedImage;
-      
-      const markersToPass: LightMarker[] = markers; // Pass placed markers
       
       let critiquesToSend = [...critiques];
       if (critiqueList && critiqueList.length > 0) {
@@ -596,19 +594,15 @@ const url = "https://example.com";
          combinedInstructions += `ADDITIONAL ARCHITECT NOTES:\n${userInstructions}`;
       }
 
-      const result = await generateLightingMockup(imageToUse, selectedTemp, settings, markersToPass, critiquesToSend, combinedInstructions);
+      // Fix: removed markersToPass (formerly 4th argument) to match generateLightingMockup function signature
+      const result = await generateLightingMockup(imageToUse, selectedTemp, settings, critiquesToSend, combinedInstructions, !!selectedQuickPromptLabel);
       setGeneratedImage(result);
       if (critiqueList) {
         setFeedbackStatus('none'); 
         setCurrentCritiqueInput("");
       }
     } catch (err: any) {
-      if (err.message === 'API_KEY_MISSING') {
-        setApiKeyReady(false);
-        setError("API Key missing or invalid. Please check your environment configuration.");
-      } else {
-        setError("Failed to generate. Try again.");
-      }
+      setError("Failed to generate. Try again.");
     } finally {
       setIsGenerating(false);
     }

@@ -1,10 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Pool } from '@neondatabase/serverless';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 
-// Use VITE_DATABASE_URL from environment variables for the connection string
-const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
+const DATABASE_URL = process.env.VITE_DATABASE_URL;
 
 interface NeonUser {
   id: string;
@@ -23,14 +22,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const NeonAuthUIProvider = ({ children }: { children: ReactNode }) => {
+export const NeonAuthUIProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<NeonUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check local storage for persistent session
     const checkSession = () => {
       const storedUser = localStorage.getItem('lumina_active_user');
       if (storedUser) {
@@ -53,8 +51,6 @@ export const NeonAuthUIProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       if (!DATABASE_URL) {
-        // Fallback for demo purposes if no DB URL is provided
-        console.warn("No VITE_DATABASE_URL found. Using mock login for demo.");
         const mockUser: NeonUser = {
             id: 'mock_user_' + Date.now(),
             email: email,
@@ -64,13 +60,8 @@ export const NeonAuthUIProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Connect to Neon using the Serverless driver
       const pool = new Pool({ connectionString: DATABASE_URL });
-      
-      // Query for user existence
-      // Assuming a table 'users' exists with columns 'id', 'email', and optionally 'name'
       const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-      
       await pool.end();
 
       if (rows.length > 0) {
@@ -82,7 +73,6 @@ export const NeonAuthUIProvider = ({ children }: { children: ReactNode }) => {
         };
         completeLogin(appUser);
       } else {
-        // User not found
         setError("User not found. Please ensure you are registered in the database.");
       }
     } catch (err: any) {
@@ -120,8 +110,6 @@ export const useAuth = () => {
   return context;
 };
 
-// --- Auth Views ---
-
 export const AuthView = () => {
   const { login, isLoading, error } = useAuth();
   const [email, setEmail] = useState('');
@@ -132,49 +120,91 @@ export const AuthView = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] p-4 w-full max-w-md mx-auto">
-      <div className="bg-white p-8 md:p-12 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 w-full text-center">
-        <div className="w-16 h-16 bg-[#111] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-black/10">
-           <span className="font-serif text-2xl font-bold text-[#F6B45A]">O</span>
+    <div className="min-h-screen w-full bg-white flex flex-col font-sans">
+      {/* Top Header - Dark */}
+      <header className="bg-[#111] py-14 flex items-center justify-center shrink-0">
+        <div className="flex items-baseline gap-4">
+          <span className="font-serif text-5xl md:text-6xl font-bold text-[#F6B45A] tracking-tight">Omnia</span>
+          <span className="font-serif italic font-bold text-lg md:text-xl tracking-[0.2em] text-white uppercase opacity-90">Light Scape Pro</span>
         </div>
-        <h2 className="text-3xl font-bold text-[#111] mb-2 tracking-tight">Welcome Back</h2>
-        <p className="text-gray-400 font-medium text-sm mb-8">Sign in to access your projects.</p>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="text-left">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Email Address</label>
-                <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full mt-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#F6B45A] transition-colors text-sm font-medium"
-                    placeholder="you@company.com"
-                />
+      </header>
+
+      {/* Main Form - White Body */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <h1 className="font-serif text-4xl font-bold text-[#111] tracking-tight mb-3">Welcome back</h1>
+            <p className="text-gray-400 font-medium text-sm">Enter your credentials to access your workspace.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#111] ml-1">Email</label>
+              <input 
+                type="email" 
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-14 px-6 bg-[#333] text-white border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F6B45A] transition-all text-sm font-medium placeholder:text-gray-500"
+                placeholder="name@company.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#111]">Password</label>
+                <button type="button" className="text-[9px] font-bold text-gray-400 hover:text-[#111] transition-colors uppercase tracking-widest">
+                  Forgot Password?
+                </button>
+              </div>
+              <input 
+                type="password" 
+                className="w-full h-14 px-6 bg-[#333] text-white border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F6B45A] transition-all text-sm font-medium placeholder:text-gray-500 tracking-widest"
+                placeholder="••••••••"
+              />
             </div>
 
             {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs font-bold flex items-center gap-2">
-                    <AlertCircle size={14} />
-                    {error}
-                </div>
+              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-3 border border-red-100 animate-in shake duration-300">
+                <AlertCircle size={16} />
+                {error}
+              </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#111] text-white h-12 rounded-xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all active:scale-[0.99] shadow-lg shadow-black/20 flex items-center justify-center gap-2"
+              className="w-full h-14 bg-[#111] text-white rounded-xl font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-black transition-all active:scale-[0.98] shadow-2xl shadow-black/20 flex items-center justify-center gap-3 group mt-4"
             >
-              {isLoading ? <Loader2 size={16} className="animate-spin text-[#F6B45A]" /> : 'Sign In'}
+              {isLoading ? (
+                <Loader2 size={20} className="animate-spin text-[#F6B45A]" />
+              ) : (
+                <>SIGN IN</>
+              )}
             </button>
-        </form>
-        
-        <div className="mt-6 pt-6 border-t border-gray-50">
-            <p className="text-[10px] text-gray-300 font-mono">
-                Powered by Neon Serverless
-            </p>
+          </form>
+
+          <div className="mt-12 flex flex-col items-center gap-6">
+            <div className="w-full flex items-center gap-4">
+              <div className="h-px flex-1 bg-gray-100"></div>
+              <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">OR</span>
+              <div className="h-px flex-1 bg-gray-100"></div>
+            </div>
+
+            <button className="text-xs font-bold text-gray-400 hover:text-[#111] transition-colors flex items-center gap-2 group">
+              New to Omnia? Create an account 
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* Simplified Footer */}
+      <footer className="w-full py-8 flex flex-col items-center justify-center gap-2">
+        <p className="text-[10px] text-gray-300 font-bold uppercase tracking-[0.25em]">
+          © 2024 Omnia Design Suite
+        </p>
+      </footer>
     </div>
   );
 };
@@ -192,9 +222,9 @@ export const AccountView = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] p-4">
-        <div className="bg-white p-8 md:p-12 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 max-w-lg w-full">
-            <h1 className="text-3xl font-bold text-[#111] mb-8 tracking-tight border-b border-gray-50 pb-4">My Account</h1>
+    <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="bg-white p-8 md:p-12 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-gray-100 max-w-lg w-full">
+            <h1 className="text-3xl font-bold text-[#111] mb-8 tracking-tighter border-b border-gray-50 pb-4">Account Settings</h1>
             
             <div className="space-y-6">
                 <div>
@@ -202,17 +232,10 @@ export const AccountView = () => {
                     <p className="text-lg font-medium text-[#111] mt-1">{user?.email}</p>
                 </div>
                 
-                {user?.id && (
-                    <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">User ID</label>
-                        <p className="text-sm font-mono text-gray-500 mt-1">{user.id}</p>
-                    </div>
-                )}
-
                 <div className="pt-6">
                     <button
                         onClick={logout}
-                        className="bg-red-50 text-red-600 px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-100 transition-colors w-full md:w-auto"
+                        className="bg-[#111] text-white px-8 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-black transition-colors w-full md:w-auto shadow-lg shadow-black/10"
                     >
                         Sign Out
                     </button>

@@ -1,7 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Neon Auth URL from environment variables
-const AUTH_URL = import.meta.env.VITE_NEON_AUTH_URL;
+// Fixed: Using process.env instead of import.meta.env to avoid TS errors as it is polyfilled in vite.config.ts
+const AUTH_URL = process.env.VITE_NEON_AUTH_URL;
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -104,7 +105,7 @@ export const AccountView = () => {
   }
 
   return React.createElement('div', { className: "flex-1 flex flex-col items-center justify-center min-h-[60vh] p-4 bg-[#FDFCFB]" },
-    React.createElement('div', { className: "bg-white p-8 md:p-12 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 max-w-lg w-full" },
+    React.createElement('div', { className: "bg-white p-8 md:p-12 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 max-lg w-full" },
       React.createElement('h1', { className: "text-3xl font-bold text-[#111] mb-8 tracking-tight border-b border-gray-50 pb-4" }, "My Account"),
       React.createElement('div', { className: "space-y-6" },
         React.createElement('div', null,

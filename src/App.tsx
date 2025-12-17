@@ -6,7 +6,8 @@ import { Dashboard } from './pages/Dashboard';
 import AuthPage from './pages/AuthPage';
 import AccountPage from './pages/AccountPage';
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+// Fixed: Explicitly typed as React.FC and props with children to satisfy TS requirements in React 18+
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { User, UserSettings, Subscription, TrialState } from '../types';
@@ -72,7 +71,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         const defaultSettings: UserSettings = {
            user_id: userId,
            default_color_temp: '3000k',
-           default_beam_angle: 60,
+           default_beam_angle: 45,
            default_fixture_type: 'up',
            company_name: '',
            logo_url: ''
@@ -144,7 +143,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           const settings: UserSettings = {
              user_id: devUserId,
              default_color_temp: '3000k',
-             default_beam_angle: 60,
+             default_beam_angle: 45,
              default_fixture_type: 'up',
              company_name: 'Omnia Dev Studio',
              logo_url: ''
@@ -249,7 +248,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                                 )}
                             </div>
                             <input 
-                                type="password"
+                                type="password" 
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-3.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#111] transition-colors placeholder:text-gray-300 font-medium tracking-widest"
