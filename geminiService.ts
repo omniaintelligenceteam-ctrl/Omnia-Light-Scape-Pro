@@ -57,7 +57,7 @@ export const chatWithAssistant = async (
       DESIGN PROMPTING EXPERTISE:
       - If a user asks for a specific look (e.g., "Make it look spooky" or "Highlight the columns"), generate a precise paragraph they can copy into the "Architect Notes".
       - **Fixture Rules**: We ONLY use:
-        1. Ground-Mounted Up Lights (base of walls/columns/under windows). RULES: NEVER on roof, concrete, or mounted onto the house structure. Must be in soft ground (mulch/grass).
+        1. Ground-Mounted Up Lights (base of walls/columns). RULES: NEVER on roof, concrete, or mounted onto the house structure. Must be in soft ground (mulch/grass).
         2. Path Lights (walkways).
         3. Gutter Mounted Up Lights (roofline/fascia).
       - WE DO NOT USE: Soffit lights, floodlights, wall packs, or string lights 
@@ -88,7 +88,7 @@ export const chatWithAssistant = async (
       }
     });
 
-    return response.text || "I'm sorry, I couldn't generate a response.";
+    return response.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't generate a response.";
 
   } catch (error) {
     console.error("Chat error:", error);
@@ -107,11 +107,11 @@ export const detectFixtureLocations = async (
     let allowedTypes: string[] = [];
     
     if (designPromptLabel === "Up Lights Only") {
-      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, columns, and trees. DO NOT place any path lights or Gutter Mounted Up Lights.";
+      focusTypes = "ONLY place ground-mounted UP LIGHTS at the base of walls, windows, statues, columns, and trees. DO NOT place any path lights or Gutter Mounted Up Lights.";
       allowedTypes = ['up'];
     } 
     else if (designPromptLabel === "Path Lights Only") {
-      focusTypes = "ONLY place PATH LIGHTS along walkways and driveways. DO NOT place any up lights or Gutter Mounted Up Lights.";
+      focusTypes = "ONLY place PATH LIGHTS along walkways. DO NOT place any up lights or Gutter Mounted Up Lights.";
       allowedTypes = ['path'];
     }
     else if (designPromptLabel === "Up Lights + Paths") {
@@ -135,8 +135,7 @@ export const detectFixtureLocations = async (
       allowedTypes = ['up', 'gutter'];
     }
     else {
-      // DEFAULT / GENERIC CASE
-      focusTypes = "Place UP LIGHTS at architecture base, PATH LIGHTS along walks, Gutter Mounted Up Lights on roofline. DO NOT place any other fixture types.";
+      focusTypes = "Place UP LIGHTS at architecture base, PATH LIGHTS along walks, Gutter Mounted Up Lights on roofline.";
       allowedTypes = ['up', 'path', 'gutter'];
     }
 
@@ -155,11 +154,10 @@ export const detectFixtureLocations = async (
       - "type": string (MUST be one of: ${allowedTypes.map(t => `'${t}'`).join(', ')})
       
       Rules:
-      - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections). They can also go under windows to highlight them IF there is landscaping (plants) available to conceal the fixture. MUST BE ON GROUND/SOIL. NEVER on roof, concrete, or mounted on house structure.
+      - 'up' lights go at the bottom of vertical architectural features (columns, corners, wall sections). MUST BE ON GROUND/SOIL. NEVER on roof, concrete, or mounted on house structure.
       - 'path' lights go along the edges of driveways or walkways (ground level).
       - 'gutter' lights (Gutter Mounted Up Lights) go on the roofline/fascia/gutter edge (high up).
-      - SYMMETRY: Treat each architectural section (e.g., entrance, garage, side wing) as a distinct composition. Maintain symmetry WITHIN each section, rather than forcing the entire house to be symmetrical.
-      - Be precise. Do not place markers in the sky or directly on window glass.
+      - Be precise. Do not place markers in the sky or on windows.
       - Reality Check: Do not infer or hallucinate trees, parts of the home, side walkways, or driveways that are not clearly visible in the image.
       - Limit to 5-15 key fixtures to create a nice design.
       
@@ -189,7 +187,7 @@ export const detectFixtureLocations = async (
       }
     });
 
-    const jsonText = response.text;
+    const jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!jsonText) return [];
 
     const parsed = JSON.parse(jsonText);
@@ -224,7 +222,7 @@ export const generateLightingMockup = async (
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // Parse allowed types from userInstructions to enforce strict exclusion logic in the prompt
+    // Parse allowed types from userInstructions
     let allowedTypesInstruction = "";
     
     if (userInstructions.includes("Up Lights Only")) {
@@ -234,14 +232,10 @@ export const generateLightingMockup = async (
       allowedTypesInstruction = "STRICT RULE: ONLY render PATH LIGHTS. Do NOT add any up lights or Gutter Mounted Up Lights.";
     }
     else if (userInstructions.includes("Up Lights + Paths")) {
-      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and PATH LIGHTS. Do NOT add any Gutter Mounted Up Lights. You MUST render both types if the landscape allows.";
+      allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and PATH LIGHTS. Do NOT add any Gutter Mounted Up Lights.";
     }
     else if (userInstructions.includes("Up Lights + Gutter Mounted Up Lights")) {
       allowedTypesInstruction = "STRICT RULE: ONLY render UP LIGHTS and Gutter Mounted Up Lights. Do NOT add any path lights.";
-    } 
-    else {
-      // DEFAULT STRICT CONSTRAINT for "Generate Design" with no prompts
-      allowedTypesInstruction = "STRICT GLOBAL RULE: The ONLY allowed fixture types are: 1. Ground-Mounted Up Lights, 2. Path Lights, 3. Gutter Mounted Up Lights. Do NOT render floodlights, soffit lights, wall packs, string lights, or any other source.";
     }
 
 
@@ -301,7 +295,7 @@ export const generateLightingMockup = async (
    - Ground-mounted uplight.
    - **RESTRICTION**: NEVER place on roof, concrete, or mounted onto the house structure. Must be in landscape beds/soft ground.
    - **CONTEXT AWARENESS (CRITICAL)**: Check the object directly behind/above this marker.
-     - **CASE A (Architecture)**: If placed on a house foundation/wall/under window, graze the wall/column/window upward. Uniform brightness up the surface.
+     - **CASE A (Architecture)**: If placed on a house foundation/wall, graze the wall/column upward. Uniform brightness up the wall.
      - **CASE B (Tree/Foliage)**: If placed in front of a tree or bush, illuminate the trunk and canopy from below. Highlight branches and foliage realistically with depth.
    - Aim direction: Upward along the vector line.
    - Beam angle: 60 degrees.
@@ -336,92 +330,17 @@ export const generateLightingMockup = async (
         - VISUAL CLEANUP: Remove the colored marker dots and vector lines from the input image. The final result should look like a finished photograph.
       `;
     } else {
-      // Auto-Design Mode Logic - DYNAMICALLY ADJUSTED BASED ON REQUESTED TYPE
-      let autoDesignScope = "";
-      
-      if (userInstructions.includes("Up Lights Only")) {
-         autoDesignScope = `
-         TASK: Place ONLY Up-Lights.
-         1. Up-lights: Place at base of columns, architectural features, and trees.
-         RESTRICTION: NO path lights. NO gutter lights.
-         `;
-      } else if (userInstructions.includes("Path Lights Only")) {
-         autoDesignScope = `
-         TASK: Place ONLY Path Lights.
-         1. Path lights: Place along walkways and driveway edges.
-         RESTRICTION: NO up-lights. NO gutter lights.
-         `;
-      } else if (userInstructions.includes("Up Lights + Paths")) {
-         autoDesignScope = `
-         TASK: Place Up-Lights AND Path Lights.
-         1. Up-lights: CRITICAL. Place at base of ALL columns, house corners, and key trees.
-         2. Path lights: Place along walkways.
-         RESTRICTION: NO gutter lights.
-         Ensure a mix of BOTH types. Do not omit up-lights.
-         `;
-      } else if (userInstructions.includes("Up Lights + Gutter Mounted Up Lights")) {
-         autoDesignScope = `
-         TASK: Place Up-Lights AND Gutter Mounted Up Lights.
-         1. Up-lights: Place at base of architecture/foundation.
-         2. Gutter lights: Place on roofline.
-         RESTRICTION: NO path lights.
-         `;
-      } else if (userInstructions.includes("Up Lights + Gutter Mounted Up Lights + Path Lights")) {
-         autoDesignScope = `
-         TASK: Place Up-Lights, Path Lights, AND Gutter Mounted Up Lights.
-         1. Up-lights: Foundation/Columns.
-         2. Path lights: Walkways.
-         3. Gutter lights: Roofline.
-         `;
-      } else if (userInstructions.includes("Christmas Theme")) {
-         autoDesignScope = `
-         TASK: Christmas Theme.
-         1. Up-lights (Red/Green) at foundation.
-         2. Gutter lights (Red/Green) at roofline.
-         `;
-      } else if (userInstructions.includes("Halloween Theme")) {
-         autoDesignScope = `
-         TASK: Halloween Theme.
-         1. Up-lights (Orange/Purple) at foundation.
-         2. Gutter lights (Orange/Purple) at roofline.
-         `;
-      } else {
-         // Default generic behavior (only used if no Quick Prompt selected)
-         autoDesignScope = `
-         TASK: Master Landscape Lighting Design (Best Practice).
-         OBJECTIVE: Create the most aesthetically pleasing, premium, and balanced design possible using STRICTLY the approved fixture palette.
-         
-         APPROVED FIXTURE PALETTE (STRICT):
-         1. Ground-Mounted Up Lights (Architecture & Trees).
-         2. Path Lights (Walkways).
-         3. Gutter Mounted Up Lights (Roofline/Upper Architecture).
-         
-         RESTRICTION: DO NOT use floodlights, soffit lights, wall sconces, or any other fixture type not listed above. Stick 100% to Up Lights, Path Lights, and Gutter Mounted Up Lights.
-         
-         STRATEGY:
-         1. Analyze the home's architecture. Identify the most important vertical features (columns, corners, peaks). Place UP LIGHTS to accent them.
-         2. Analyze the landscape. Identify key trees or paths. Place UP LIGHTS on trees and PATH LIGHTS on walkways.
-         3. Analyze the roofline. Use GUTTER MOUNTED UP LIGHTS to highlight upper story dormers or peaks if they exist.
-         
-         Do not force all types if they don't fit (e.g. no path lights if no walkway), but do not introduce foreign fixture types. Use your expert judgment to create the "Perfect Design" within these constraints.
-         `;
-      }
-
       placementInstruction = `
         Auto-Design Mode:
         ROLE: Professional Landscape Lighting Designer.
-        OBJECTIVE: Light this property up in the BEST WAY POSSIBLE based on the specific style requested below.
+        OBJECTIVE: Light this property up in the BEST WAY POSSIBLE. 
+        Create a stunning, high-end, professional lighting design that maximizes curb appeal and architectural beauty.
         
-        Analyze the architecture and landscaping.
-        ${autoDesignScope}
-        
-        General Rules:
-        - Up-lights must be on the ground, never on roof or concrete.
-        - You CAN place up-lights under windows to highlight them, BUT ONLY if there is landscaping (plants/bushes) to frame the window or conceal the fixture.
-        - Gutter Mounted Up lights connect to the gutter and shine upwards.
-        
-        SYMMETRY: Treat each architectural section of the home (e.g., main entrance, garage wing, side addition) as its own composition. Keep each SECTION symmetrical relative to itself, rather than forcing the entire home to be symmetrical.
-        Ensure a balanced, professional composition with 60 degree beam spreads.
+        Analyze the architecture and landscaping. Intelligently place:
+        1. Up-lights at the base of key columns and architectural features (full height of the feature). NOTE: Up-lights must be on the ground, never on roof or concrete.
+        2. Path lights along walkways and garden borders.
+        3. Gutter Mounted Up lights connect to the gutter and shine upwards to hit dormers and architectural features directly under them and (full height of the feature) above the first story. Never shining on only the roof
+        3. Ensure a balanced, professional composition with 60 degree beam spreads.
       `;
     }
 

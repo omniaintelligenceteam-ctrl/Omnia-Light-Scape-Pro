@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Auth } from './components/Auth';
@@ -976,7 +977,7 @@ const url = "https://example.com";
                                   >
                                     Fix It
                                   </button>
-                               </div>
+                                </div>
                             </div>
                          )}
 
