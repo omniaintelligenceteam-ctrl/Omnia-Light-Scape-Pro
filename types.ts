@@ -5,7 +5,8 @@ export interface ColorTemperature {
   description: string;
 }
 
-// Adding MarkerType and LightMarker for design markers functionality
+// MarkerType for design markers functionality
+// 'up' refers to Ground Staked Up Lights
 export type MarkerType = 'up' | 'path' | 'gutter';
 
 export interface LightMarker {
@@ -115,7 +116,6 @@ export interface Project {
   date: string;
   inputImage: string;
   outputImage: string;
-  // Included markers in Project interface to support design state persistence
   markers?: LightMarker[];
   settings: AppSettings;
   quote?: Quote;

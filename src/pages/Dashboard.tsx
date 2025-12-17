@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { ProjectGallery } from '../components/ProjectGallery';
@@ -137,7 +136,8 @@ export const Dashboard: React.FC = () => {
 
     if (userInstructions) {
        const text = userInstructions.toLowerCase();
-       const upMatch = text.match(/(\d+)\s*(?:up\s?light|uplight)/);
+       // Updated regex to include Ground Staked Up Light
+       const upMatch = text.match(/(\d+)\s*(?:up\s?light|uplight|ground\s?staked)/);
        if (upMatch) upCount = parseInt(upMatch[1]);
        const pathMatch = text.match(/(\d+)\s*(?:path\s?light|pathlight)/);
        if (pathMatch) pathCount = parseInt(pathMatch[1]);

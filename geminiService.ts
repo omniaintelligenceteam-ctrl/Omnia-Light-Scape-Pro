@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { AppSettings, ColorTemperature } from "./types";
 
@@ -38,12 +37,13 @@ export const chatWithAssistant = async (
       3. Explain lighting terminology (Kelvin, Beam Spread, Fixture Types).
       
       DESIGN PRIORITIES (Hierarchy):
-      - PRIMARY: Lighting up each section of the house facade properly and evenly, including both the first and second stories.
-      - SECONDARY: Lighting up landscape features like trees, statues, large stones, and unique architectural features.
-      - TERTIARY: Lighting up paths, walkways, and driveways.
+      - PRIMARY: Lighting up each section of the house facade properly and evenly, including both the first and second stories. Use Ground Staked Up Lights for the 1st story and Gutter Mounted Up Lights for the 2nd story.
+      - SECONDARY: Lighting up landscape features like trees, statues, large stones, and unique architectural features using Ground Staked Up Lights.
+      - TERTIARY: Lighting up paths, walkways, and driveways with path lights.
       
       STRICT FIXTURE RULE: 
-      - By default, we use UP-LIGHTING (ground-mounted or gutter-mounted) and PATH LIGHTS.
+      - By default, we use GROUND STAKED UP LIGHTS (ground-mounted), GUTTER MOUNTED UP LIGHTS, and PATH LIGHTS.
+      - GROUND STAKED UP LIGHTS should have a default beam spread of 45 degrees.
       - DO NOT suggest or include SOFFIT LIGHTS or RECESSED DOWNLIGHTS unless the user specifically asks for them. 
       
       TONE: Professional, expert, and helpful.
@@ -92,13 +92,16 @@ export const generateLightingMockup = async (
       Transform this daytime house photo into a photorealistic night-time lighting mockup. 
       Follow this design hierarchy strictly:
       
-      1. PRIMARY FOCUS: Evenly and professionally light up every section of the house facade. Ensure both the 1st story and 2nd story architectural features are perfectly illuminated using UP-LIGHTING techniques.
-      2. SECONDARY FOCUS: Highlight landscape features including trees, statues, large stones, and unique garden elements.
-      3. TERTIARY FOCUS: Illuminate paths and walkways for safety and elegance.
+      1. PRIMARY FOCUS: Evenly and professionally light up every section of the house facade. Ensure both the 1st story and 2nd story architectural features are perfectly illuminated. 
+         - Use GROUND STAKED UP LIGHTS (ground-mounted) for 1st story features.
+         - Use GUTTER MOUNTED UP LIGHTS for 2nd story features.
+         - All up-lighting should use a focused 45-degree beam spread unless noted.
+      2. SECONDARY FOCUS: Highlight landscape features including trees, statues, large stones, and unique garden elements using GROUND STAKED UP LIGHTS.
+      3. TERTIARY FOCUS: Illuminate paths and walkways for safety and elegance using post-mounted path lights.
       
       STRICT FIXTURE EXCLUSION RULE:
       - DO NOT generate SOFFIT LIGHTS, RECESSED DOWNLIGHTS, or any EAVES-MOUNTED FIXTURES unless they are explicitly requested in the ARCHITECT NOTES below.
-      - If they are not specifically asked for, you MUST NOT include them. Instead, use ground-mounted or gutter-mounted up-lights to achieve the facade illumination.
+      - If they are not specifically asked for, you MUST NOT include them. Instead, use GROUND STAKED UP LIGHTS or GUTTER MOUNTED UP LIGHTS.
       
       ENVIRONMENT:
       - Scene should be Night (${100 - settings.ambientLight}% darkness).
@@ -110,7 +113,7 @@ export const generateLightingMockup = async (
       - Shadow Contrast: ${settings.shadowContrast}%.
       
       ARCHITECT NOTES (Mandatory Instructions):
-      "${userInstructions || 'Create a balanced, professional lighting design.'}"
+      "${userInstructions || 'Create a balanced, professional lighting design using Ground Staked Up Lights, Gutter Mounted Up Lights, and Path Lights.'}"
       
       ${critiques.length > 0 ? `FIX IT (REQUIRED CORRECTIONS):\n${critiques.join('\n')}` : ''}
       
@@ -149,14 +152,13 @@ export const generateLightingMockup = async (
       }
     }
 
-    // Safety fallback for unexpected text-only response
     const textPart = response.text;
     if (textPart) {
       console.warn("AI returned text instead of image:", textPart);
       throw new Error(`The AI declined to generate the image. Reason: ${textPart}`);
     }
 
-    throw new Error("No image data found in response. This may be due to safety filters or service limitations.");
+    throw new Error("No image data found in response.");
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
