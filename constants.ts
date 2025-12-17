@@ -29,7 +29,7 @@ export const COLOR_TEMPERATURES: ColorTemperature[] = [
 
 export const QUICK_PROMPTS = [
   {
-    label: "Ground Staked Up Lights Only",
+    label: "Up Lights Only",
     text: "Use ONLY Ground Staked Up Lights at the base of the 1st story walls and trees. Keep the 2nd story and roofline COMPLETELY DARK. Absolutely NO soffit lights. Do not add any landscape features that aren't in the photo."
   },
   {
@@ -37,15 +37,15 @@ export const QUICK_PROMPTS = [
     text: "Use ONLY path lights along existing walkways. Do not light the house at all. Keep everything dark except the paths. No hallucinations."
   },
   {
-    label: "Ground Staked Up Lights + Paths",
+    label: "Up Lights + Paths",
     text: "Ground Staked Up Lights for the 1st floor facade and existing trees, plus path lights for walkways. Keep the 2nd story and eaves dark. No soffit lights."
   },
   {
-    label: "Full Facade (1st & 2nd Story)",
-    text: "Ground Staked Up Lights for 1st story. Use Gutter Mounted Up Lights on 1st floor gutters to light the 2nd story. Absolutely NO soffit lights. Do not add extra windows or architecture."
+    label: "Up Lights + Gutter Up Lights",
+    text: "Ground Staked Up Lights for 1st story. Use Gutter Mounted Up Lights on 1st floor gutters to light the 2nd story. Absolutely NO soffit lights. Do not add extra architecture."
   },
   {
-    label: "Professional Trio",
+    label: "Up Lights+ Gutter Up Lights+ Path Lights",
     text: "The complete professional package: 1. Ground Staked Up Lights for 1st story and trees. 2. Gutter Mounted Up Lights for 2nd story architectural features. 3. Path lights for walkways. No soffit lights. Keep 2nd story dark if no gutter mounts exist."
   },
   {
