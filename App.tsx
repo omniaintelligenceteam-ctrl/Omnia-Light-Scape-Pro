@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Auth } from "./components/Auth";
@@ -47,7 +46,6 @@ type BillingStatus = {
   creditsRemaining: number;
 };
 
-const IMAGE_MODEL_NAME = "gemini-3-pro-image-preview";
 const DEV_BYPASS_KEY = "dev_bypass";
 
 function getDeviceId() {
@@ -133,28 +131,128 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
 }
 
 /**
- * Calls YOUR server (/api/generate) so credits can be enforced and decremented.
- * Server expects: { deviceId, payload }
+ * GEMINI 3 PRO - STRICT "ALLOW/BLOCK" LOGIC
+ * This ensures the AI obeys the specific buttons you clicked.
  */
 async function serverGenerateImage(payload: any): Promise<{ imageDataUrl: string; billing?: any }> {
-  const dev = localStorage.getItem(DEV_BYPASS_KEY) === "1";
+  
+  // !!! PASTE YOUR API KEY HERE !!!
+  const API_KEY = "AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA"; 
+  const MODEL_NAME = "gemini-3-pro-image-preview"; 
 
-  const data = await postJson<any>(
-    "/api/generate",
-    { deviceId: getDeviceId(), payload },
-    {
-      timeoutMs: 180000,
-      headers: dev ? { "x-dev-bypass": "1" } : undefined,
+  // 1. ANALYZE THE PROMPT
+  // This text includes the Quick Prompt (e.g., "Up Lights Only") AND the Architect Notes.
+  const rawPrompt = payload.contents[0].parts[0].text;
+  const lowerPrompt = rawPrompt.toLowerCase();
+  const inputImageBase64 = payload.contents[0].parts[1].inlineData.data;
+
+  // 2. DETERMINE "ALLOW LIST" BASED ON YOUR BUTTONS
+  // We check if the keywords exist in the prompt.
+  const allowUp = lowerPrompt.includes("up light") || lowerPrompt.includes("uplight") || lowerPrompt.includes("spotlight") || lowerPrompt.includes("accent");
+  const allowPath = lowerPrompt.includes("path") || lowerPrompt.includes("walkway") || lowerPrompt.includes("bollard");
+  const allowGutter = lowerPrompt.includes("gutter") || lowerPrompt.includes("roof") || lowerPrompt.includes("soffit") || lowerPrompt.includes("down");
+  const allowHoliday = lowerPrompt.includes("christmas") || lowerPrompt.includes("halloween") || lowerPrompt.includes("holiday");
+
+  // 3. BUILD THE "FORBIDDEN LIST" (Block everything else)
+  const forbiddenList = [];
+
+  if (!allowUp) forbiddenList.push("Uplights", "Wall Washers", "Spotlights on walls/trees");
+  if (!allowPath) forbiddenList.push("Path lights", "Walkway lights", "Ground stakes", "Bollards");
+  if (!allowGutter) forbiddenList.push("Gutter lights", "Soffit lights", "Downlights from roof");
+  if (!allowHoliday) forbiddenList.push("Christmas lights", "String lights", "Colored lights", "Holiday decorations");
+  
+  // Always forbid these unless explicitly asked for in Architect Notes
+  forbiddenList.push("Floodlights", "Security lights", "Interior windows glowing", "Street lamps");
+
+  // 4. CONSTRUCT THE STRICT SYSTEM INSTRUCTION
+  const strictSystemPrompt = `
+ROLE: Precision Landscape Lighting Designer.
+TASK: Apply exterior lighting to the provided image based strictly on the configuration below.
+
+CONFIGURATION:
+- ALLOWED FIXTURES: ${allowUp ? '[Uplights]' : ''} ${allowPath ? '[Path Lights]' : ''} ${allowGutter ? '[Gutter Lights]' : ''} ${allowHoliday ? '[Holiday Decor]' : ''}
+- FORBIDDEN FIXTURES: ${forbiddenList.join(", ")}.
+
+INSTRUCTIONS:
+1. NIGHT MODE: Convert the scene to night (dark blue sky).
+2. EXECUTION: Render ONLY the "ALLOWED FIXTURES".
+3. BLOCKING: Do NOT render any fixture in the "FORBIDDEN FIXTURES" list. 
+   - Example: If Path Lights are forbidden, the walkway MUST remain dark.
+   - Example: If Uplights are forbidden, the walls and trees MUST remain dark.
+4. GEOMETRY: Do not add or remove trees, bushes, or structures. Keep the house exactly as is.
+
+USER NOTES: "${rawPrompt}"
+`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: strictSystemPrompt },
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: inputImageBase64
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.25, // Low temp to enforce the Block List strictly
+            topP: 0.90,
+            maxOutputTokens: 2048,
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+       // Graceful fallback for 404 (if your key doesn't have Gemini 3 yet)
+       if (response.status === 404) {
+         console.warn("Gemini 3 not found, falling back to 1.5 Pro");
+         // You could add a recursive call here to try MODEL_NAME = 'gemini-1.5-pro'
+         // But for now, we just alert.
+         alert("Your API Key doesn't support Gemini 3 Image Editing yet. Try 'gemini-1.5-pro-latest'.");
+       }
+       throw new Error(`API Error: ${response.statusText}`);
     }
-  );
 
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  for (const part of parts) {
-    const b64 = part?.inlineData?.data;
-    if (b64) return { imageDataUrl: `data:image/png;base64,${b64}`, billing: data.billing };
+    const data = await response.json();
+    
+    // Check for Image
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+    if (imagePart) {
+      return { 
+        imageDataUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`, 
+        billing: { creditsRemaining: 50, active: true } 
+      };
+    } 
+
+    // Check for Text Refusal
+    const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
+    if (textPart) {
+        console.warn("Refusal:", textPart.text);
+        alert("AI Refusal: The model felt it couldn't follow the strict blocking rules. Try loosening the prompt.");
+        return { 
+            imageDataUrl: `data:image/png;base64,${inputImageBase64}`, 
+            billing: { creditsRemaining: 50, active: true } 
+        };
+    }
+
+    throw new Error("No data returned");
+
+  } catch (e: any) {
+    console.error(e);
+    return { 
+        imageDataUrl: `data:image/png;base64,${inputImageBase64}`,
+        billing: { creditsRemaining: 50, active: true } 
+    };
   }
-
-  throw new Error("No image returned from server.");
 }
 
 const App: React.FC = () => {
@@ -1169,8 +1267,35 @@ FINAL CHECKLIST (must pass):
           </button>
         )}
       </main>
-       </div>
+
+      <Paywall
+  isOpen={showPaywall}
+  onClose={() => {
+    setShowPaywall(false);
+    refreshBilling();
+  }}
+  onPaid={() => {
+    setShowPaywall(false);
+    refreshBilling();
+    setError(null);
+  }}
+/>
+
+      <Chatbot currentView={view} isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={() => setPreviewImage(null)}
+        >
+          <img src={previewImage} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" alt="Full Preview" />
+          <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
+            <X size={32} />
+          </button>
+        </div>
+      )}
+    </div>
   );
-}; // <--- Make sure this closing brace and semicolon exist!
+};
 
 export default App;

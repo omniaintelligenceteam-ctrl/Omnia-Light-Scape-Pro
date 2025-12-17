@@ -1,16 +1,19 @@
 
 import React, { useState } from 'react';
+import { Check, X, Loader2, Sparkles, ShieldCheck, Zap } from 'lucide-react';
 import { SubscriptionPlan, SubscriptionStatus } from '../types';
-import { Loader2, ShieldCheck, Zap, Check } from 'lucide-react';
 
+// 1. THIS INTERFACE FIXES THE RED LINE IN APP.TSX
 interface PaywallProps {
   isOpen: boolean;
-  onSubscribe: (plan: SubscriptionPlan) => Promise<void>;
-  onManageBilling: () => Promise<void>;
-  userSubscriptionStatus: SubscriptionStatus;
+  onClose: () => void;      
+  onPaid?: () => void;      
+  onSubscribe?: (plan: SubscriptionPlan) => Promise<void>;
+  onManageBilling?: () => Promise<void>;
+  userSubscriptionStatus?: SubscriptionStatus;
 }
 
-// 1. CONFIGURED PRICING TIERS
+// 2. YOUR PRICING TIERS (Restored)
 const PRICING_TIERS = [
   {
     id: 'tier_10',
@@ -63,104 +66,112 @@ const PRICING_TIERS = [
   }
 ];
 
-export const Paywall: React.FC<PaywallProps> = ({ isOpen, userSubscriptionStatus }) => {
+export const Paywall: React.FC<PaywallProps> = ({ 
+  isOpen, 
+  onClose, 
+  onPaid 
+}) => {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-
-  // If you have a customer portal link, paste it here. Otherwise, leave as is.
-  const BILLING_PORTAL_LINK = "https://billing.stripe.com/p/login/REPLACE_WITH_YOUR_PORTAL_LINK"; 
 
   if (!isOpen) return null;
 
   const handleLinkClick = (tierId: string, url: string) => {
     setLoadingPlan(tierId);
-    // Add a small delay so the user sees the spinner, then redirect
+    
+    // Slight delay for UX then open link
     setTimeout(() => {
         window.open(url, '_blank');
+        
+        // Simulate success and close
         setLoadingPlan(null);
+        if (onPaid) onPaid(); // Tell App.tsx payment started
+        // Note: In real app, you wouldn't close immediately, you'd wait for webhook
+        // onClose(); 
     }, 500);
-  };
-
-  const handlePortalClick = () => {
-      window.open(BILLING_PORTAL_LINK, '_blank');
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-white/90 backdrop-blur-xl" />
+      {/* Dark backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
       
-      <div className="relative bg-white w-full max-w-2xl rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-500 max-h-[90vh]">
+      <div className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[85vh]">
         
         {/* Header */}
-        <div className="pt-8 px-8 pb-4 text-center shrink-0">
-          <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-black/10">
-             <Zap size={20} className="text-yellow-400 fill-yellow-400" />
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-2">Your 2-day free trial has ended</h2>
-          <p className="text-gray-500 font-light text-sm leading-relaxed max-w-xs mx-auto">
-            Generations reset every month based on your plan.
-          </p>
+        <div className="p-8 pb-2 text-center shrink-0 relative">
+            <div className="absolute top-6 right-6">
+                 <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-[#111]">
+                    <X size={20} />
+                 </button>
+            </div>
+            <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-black/10">
+               <Sparkles size={20} className="text-[#F6B45A]" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-[#111] mb-2">Upgrade Plan</h2>
+            <p className="text-gray-500 text-sm leading-relaxed">
+               Choose the number of generations you need per month.
+            </p>
         </div>
 
-        {/* Scrollable Plans Area */}
-        <div className="px-8 pb-4 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 gap-3">
+        {/* Options (Scrollable) */}
+        <div className="p-8 pt-4 space-y-3 overflow-y-auto custom-scrollbar">
+            
             {PRICING_TIERS.map((tier) => (
-              <button 
-                key={tier.id}
-                onClick={() => handleLinkClick(tier.id, tier.link)}
-                disabled={!!loadingPlan}
-                className={`w-full group relative border-2 rounded-2xl p-5 transition-all duration-200 text-left hover:shadow-md flex justify-between items-center
-                  ${tier.popular 
-                    ? 'bg-black border-black text-white hover:-translate-y-0.5 shadow-xl shadow-black/10' 
-                    : 'bg-white border-gray-100 hover:border-black text-black'
-                  }`}
-              >
-                {tier.popular && (
-                  <div className="absolute -top-2.5 left-6 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    MOST POPULAR
-                  </div>
-                )}
-                
-                <div>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="font-bold text-lg">{tier.generations}</span>
-                    <span className={`text-xs font-medium ${tier.popular ? 'text-gray-300' : 'text-gray-500'}`}>Generations/mo</span>
-                  </div>
-                  <div className={`text-[10px] flex items-center gap-1.5 ${tier.popular ? 'text-gray-400' : 'text-gray-400'}`}>
-                    <Check size={10} className={tier.popular ? 'text-green-400' : 'text-green-500'} /> 
-                    Resets monthly
-                  </div>
-                </div>
+                <button 
+                    key={tier.id}
+                    onClick={() => handleLinkClick(tier.id, tier.link)}
+                    disabled={!!loadingPlan}
+                    className={`w-full group relative border-2 rounded-2xl p-4 flex items-center justify-between transition-all text-left overflow-hidden
+                        ${tier.popular 
+                            ? 'bg-[#111] border-[#111] hover:bg-black shadow-xl shadow-black/10' 
+                            : 'bg-white border-gray-100 hover:border-gray-300'
+                        }
+                    `}
+                >
+                    {tier.popular && (
+                        <div className="absolute top-0 right-0 bg-[#F6B45A] text-[#111] text-[9px] font-bold px-2 py-1 rounded-bl-xl z-10">
+                            BEST VALUE
+                        </div>
+                    )}
 
-                <div className="text-right">
-                  <div className="font-bold text-xl">${tier.price}</div>
-                  <div className={`text-[10px] ${tier.popular ? 'text-gray-400' : 'text-gray-400'}`}>per month</div>
-                </div>
+                    <div className="flex flex-col">
+                        <div className="flex items-baseline gap-2">
+                             <span className={`font-bold text-lg ${tier.popular ? 'text-white' : 'text-[#111]'}`}>
+                                {tier.generations}
+                             </span>
+                             <span className={`text-xs uppercase tracking-wider font-bold ${tier.popular ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Generations
+                             </span>
+                        </div>
+                        <div className={`text-[10px] flex items-center gap-1 mt-1 ${tier.popular ? 'text-gray-400' : 'text-gray-400'}`}>
+                             <Check size={10} className={tier.popular ? 'text-green-400' : 'text-green-600'} /> Resets monthly
+                        </div>
+                    </div>
 
-                {loadingPlan === tier.id && (
-                  <div className={`absolute inset-0 flex items-center justify-center rounded-2xl ${tier.popular ? 'bg-black/80' : 'bg-white/80'}`}>
-                    <Loader2 size={20} className="animate-spin" />
-                  </div>
-                )}
-              </button>
+                    <div className="text-right pr-2">
+                        <p className={`text-xl font-bold ${tier.popular ? 'text-white' : 'text-[#111]'}`}>
+                            ${tier.price}
+                        </p>
+                        <p className={`text-[10px] ${tier.popular ? 'text-gray-500' : 'text-gray-400'}`}>/mo</p>
+                    </div>
+
+                    {loadingPlan === tier.id ? (
+                       <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+                           <Loader2 size={24} className={`animate-spin ${tier.popular ? 'text-white' : 'text-black'}`} />
+                       </div>
+                    ) : (
+                       <div className={`absolute right-4 opacity-0 group-hover:opacity-100 transition-opacity ${tier.popular ? 'text-white' : 'text-black'}`}>
+                          <Zap size={16} />
+                       </div>
+                    )}
+                </button>
             ))}
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div className="px-8 pb-8 pt-4 flex flex-col items-center shrink-0 border-t border-gray-50 bg-gray-50/50">
-          <div className="flex items-center gap-2 text-gray-400 mb-4 text-[10px]">
-             <ShieldCheck size={12} />
-             <span>Secure payment via Stripe</span>
-          </div>
-
-          <button 
-            onClick={handlePortalClick}
-            className="text-xs font-medium text-gray-400 hover:text-black underline transition-colors"
-          >
-            Manage existing subscription
-          </button>
+            <div className="pt-4 text-center shrink-0">
+                 <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
+                   <ShieldCheck size={12} /> Secured by Stripe. Cancel anytime.
+                 </p>
+            </div>
         </div>
 
       </div>
