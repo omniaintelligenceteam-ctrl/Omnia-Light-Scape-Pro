@@ -113,7 +113,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const trialStart = trialState?.trial_start || now;
   const isTrialActive = now < trialEnd;
   const daysRemaining = Math.max(0, Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24)));
-  const totalTrialDays = 7;
+  const totalTrialDays = 2; // Changed from 7 to 2
   const daysUsed = totalTrialDays - daysRemaining;
   const progressPercent = Math.min(100, (daysUsed / totalTrialDays) * 100);
   

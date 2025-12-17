@@ -56,7 +56,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         
         const userId = Date.now().toString();
         const now = Date.now();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const trialDaysMs = 2 * 24 * 60 * 60 * 1000;
         
         // 1. Create User
         const newUser = {
@@ -88,12 +88,12 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             current_period_end: 0
         };
 
-        // 4. Create Trial State (7 Days from now)
+        // 4. Create Trial State (2 Days from now)
         const defaultTrial: TrialState = {
             user_id: userId,
             has_had_trial_before: false,
             trial_start: now,
-            trial_end: now + sevenDaysMs 
+            trial_end: now + trialDaysMs 
         };
 
         // Persist all "Tables"
@@ -208,7 +208,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                             {isLogin ? 'Welcome back' : 'Create account'}
                         </h1>
                         <p className="text-gray-500 font-medium text-sm leading-relaxed">
-                            {isLogin ? 'Enter your credentials to access your workspace.' : 'Start your 7-day free trial today.'}
+                            {isLogin ? 'Enter your credentials to access your workspace.' : 'Start your 2-day free trial today.'}
                         </p>
                     </div>
 

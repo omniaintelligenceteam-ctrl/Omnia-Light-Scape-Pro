@@ -88,7 +88,7 @@ export const chatWithAssistant = async (
       }
     });
 
-    return response.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't generate a response.";
+    return response.text || "I'm sorry, I couldn't generate a response.";
 
   } catch (error) {
     console.error("Chat error:", error);
@@ -187,7 +187,7 @@ export const detectFixtureLocations = async (
       }
     });
 
-    const jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    const jsonText = response.text;
     if (!jsonText) return [];
 
     const parsed = JSON.parse(jsonText);

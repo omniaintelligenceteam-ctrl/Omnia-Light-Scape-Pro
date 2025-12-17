@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import { SubscriptionPlan, SubscriptionStatus } from '../types';
 import { Loader2, ShieldCheck, Zap, Check } from 'lucide-react';
 
 interface PaywallProps {
   isOpen: boolean;
-  onSubscribe?: (plan: SubscriptionPlan) => Promise<void>;
-  onManageBilling?: () => Promise<void>;
+  onSubscribe: (plan: SubscriptionPlan) => Promise<void>;
+  onManageBilling: () => Promise<void>;
   userSubscriptionStatus: SubscriptionStatus;
 }
 
@@ -95,8 +96,8 @@ export const Paywall: React.FC<PaywallProps> = ({ isOpen, userSubscriptionStatus
           <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-black/10">
              <Zap size={20} className="text-yellow-400 fill-yellow-400" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-2">Choose your Monthly Plan</h2>
-          <p className="text-gray-500 font-light text-sm">
+          <h2 className="text-2xl font-bold tracking-tight mb-2">Your 2-day free trial has ended</h2>
+          <p className="text-gray-500 font-light text-sm leading-relaxed max-w-xs mx-auto">
             Generations reset every month based on your plan.
           </p>
         </div>
