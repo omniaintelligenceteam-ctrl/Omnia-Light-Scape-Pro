@@ -1,14 +1,19 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    proxy: {
-      "/api": "http://localhost:3001",
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
     },
+    // FORCE VITE TO USE ONLY ONE COPY OF REACT
+    dedupe: ['react', 'react-dom'],
   },
-  define: {
-    "process.env": {},
-  },
-});
+  server: {
+    port: 5173,
+    host: true
+  }
+})

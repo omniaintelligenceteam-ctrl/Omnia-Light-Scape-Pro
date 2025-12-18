@@ -36,10 +36,14 @@ export interface GenerationState {
 
 export interface User {
   id: string;
-  auth_provider_id?: string; // 'google', 'email', etc.
-  email: string;
   name: string;
-  created_at: number; // timestamp
+  email: string;
+  avatar?: string;
+  // Add these new fields to fix the red lines:
+  credits?: number;
+  plan?: string;
+  isPro?: boolean;
+  created_at?: number;
 }
 
 export type FixtureType = "up" | "path" | "gutter" | "transformer" | "custom";
