@@ -169,7 +169,7 @@ ROLE: Precision Landscape Lighting Designer.
 TASK: Apply exterior lighting to the provided image based strictly on the configuration below.
 
 CONFIGURATION:
-- ALLOWED FIXTURES: ${allowUp ? '[Uplights]' : ''} ${allowPath ? '[Path Lights]' : ''} ${allowGutter ? '[Gutter Lights]' : ''} ${allowHoliday ? '[Holiday Decor]' : ''}
+- ALLOWED FIXTURES: ${allowUp ? '[Uplights]' : ''} ${allowPath ? '[Path Lights]' : ''} ${allowGutter ? '[Gutter Mounted Up Lights]' : ''} ${allowHoliday ? '[Holiday Decor]' : ''}
 - FORBIDDEN FIXTURES: ${forbiddenList.join(", ")}.
 
 INSTRUCTIONS:
