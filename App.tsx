@@ -129,7 +129,6 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
     creditsRemaining: Number(data.creditsRemaining || 0),
   };
 }
-
 /**
  * GEMINI 3 PRO - STRICT "ALLOW/BLOCK" LOGIC
  * This ensures the AI obeys the specific buttons you clicked.
