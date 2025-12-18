@@ -482,7 +482,8 @@ const App: React.FC = () => {
     }
   };
 
-  if (!user) return <Auth onLogin={handleLogin} />;
+  if (!user) return <Auth />;
+
 
   return (
     <div className="flex flex-col h-screen bg-[#FDFCFB] overflow-hidden text-[#111] font-sans" onMouseUp={handleMouseUp}>

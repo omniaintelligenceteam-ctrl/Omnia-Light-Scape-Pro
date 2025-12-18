@@ -154,11 +154,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
 
-  // Local state for form
-  const [companyName, setCompanyName] = useState(userSettings?.company_name || "");
-  const [logoUrl, setLogoUrl] = useState(userSettings?.logo_url || "");
-  const [defaultColorTemp, setDefaultColorTemp] = useState(userSettings?.default_color_temp || "3000k");
-  const [defaultDesignTemplate, setDefaultDesignTemplate] = useState(userSettings?.default_design_template || "");
+ const [companyName, setCompanyName] = useState(safeCompanyName);
+const [logoUrl, setLogoUrl] = useState(safeLogoUrl);
+const [defaultColorTemp, setDefaultColorTemp] = useState(safeColorTemp);
+const [defaultDesignTemplate, setDefaultDesignTemplate] = useState(safeDesignTemplate);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
 

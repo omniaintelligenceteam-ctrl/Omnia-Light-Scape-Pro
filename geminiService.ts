@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { AppSettings, ColorTemperature, LightMarker } from "../types";
+import { AppSettings, ColorTemperature, LightMarker } from '../types'
 
 // API Key must be obtained exclusively from the environment variable process.env.API_KEY
 // The user MUST select their own API key via window.aistudio for high-end models.
@@ -431,11 +431,11 @@ export const generateLightingMockup = async (
           },
         ],
       },
-      config: {
-        imageConfig: {
-            aspectRatio: "16:9",
-            imageSize: "2K", // Forced 2K Resolution
-        }
+     generationConfig: {
+  temperature: 0.4,
+  topP: 0.95,
+  maxOutputTokens: 2048,
+}
       },
     });
 
