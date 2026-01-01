@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import type {
   User,
   UserSettings,
-  Subscription,   // kept for compatibility (unused)
-  TrialState,     // kept for compatibility (unused)
+  Subscription,
+  TrialState,
   AppSettings,
   ColorTemperature,
   FixturePricing,
@@ -11,7 +11,6 @@ import type {
 import {
   Save,
   Loader2,
-  CreditCard,
   Building,
   Lightbulb,
   ChevronDown,
@@ -24,8 +23,6 @@ import {
   Upload,
   Trash2,
   MessageCircle,
-  Crown,
-  RefreshCw,
 } from "lucide-react";
 import { COLOR_TEMPERATURES, QUICK_PROMPTS, DEFAULT_PRICING } from "../constants";
 import { Slider } from "./Slider";
@@ -34,21 +31,15 @@ import { Toggle } from "./Toggle";
 interface SettingsPageProps {
   user: User;
   userSettings: UserSettings | null;
-
-  // Legacy Stripe-era props (now unused, but kept so existing App.tsx compiles)
   subscription: Subscription | null;
   trialState: TrialState | null;
-
   onSaveSettings: (newSettings: UserSettings) => void;
   onUpgrade: () => void;
   onLogout: () => void;
-
   appSettings: AppSettings;
   setAppSettings: (s: AppSettings) => void;
-
   selectedTemp: ColorTemperature;
   setSelectedTemp: (t: ColorTemperature) => void;
-
   onToggleChat: () => void;
 }
 
@@ -59,26 +50,6 @@ interface SettingsSectionProps {
   isOpen: boolean;
   onToggle: () => void;
   children: React.ReactNode;
-}
-
-type BillingStatus = {
-  active: boolean;
-  status: string;
-  planKey?: string;
-  ym?: string;
-  creditsTotal: number;
-  creditsUsed: number;
-  creditsRemaining: number;
-};
-
-function getDeviceId() {
-  const key = "device_id";
-  let id = localStorage.getItem(key);
-  if (!id) {
-    id = (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : `dev-${Date.now()}-${Math.random()}`;
-    localStorage.setItem(key, id);
-  }
-  return id;
 }
 
 const SettingsSection: React.FC<SettingsSectionProps> = ({
@@ -138,7 +109,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   user,
   userSettings,
   onSaveSettings,
-  onUpgrade,
   onLogout,
   appSettings,
   setAppSettings,
@@ -148,11 +118,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>("lighting");
-
-  // Billing status (PayPal + monthly credits) from server
-  const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const [billingLoading, setBillingLoading] = useState(false);
-  const [billingError, setBillingError] = useState<string | null>(null);
 
   // Local state for form
   const [companyName, setCompanyName] = useState(userSettings?.company_name || "");
@@ -171,7 +136,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     });
   });
 
-  // If userSettings arrives later, sync form fields once
   useEffect(() => {
     if (!userSettings) return;
     setCompanyName(userSettings.company_name || "");
@@ -215,8 +179,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const handleSave = async () => {
     if (!userSettings) return;
     setLoading(true);
-
-    // tiny UX delay so button feedback feels real
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     const updated: UserSettings = {
@@ -232,47 +194,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setLoading(false);
   };
 
-  const refreshBilling = async () => {
-    setBillingLoading(true);
-    setBillingError(null);
-    try {
-      const resp = await fetch("/api/billing/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId: getDeviceId() }),
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data?.error || "Failed to fetch billing status");
-
-      setBilling({
-        active: !!data.active,
-        status: String(data.status || "UNKNOWN"),
-        planKey: data.planKey,
-        ym: data.ym,
-        creditsTotal: Number(data.creditsTotal || 0),
-        creditsUsed: Number(data.creditsUsed || 0),
-        creditsRemaining: Number(data.creditsRemaining || 0),
-      });
-    } catch (e: any) {
-      setBilling(null);
-      setBillingError(e?.message || "Billing status failed.");
-    } finally {
-      setBillingLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refreshBilling();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const isPro = billing?.active === true;
-
   return (
     <div className="flex-1 overflow-y-auto bg-[#FDFCFB] relative font-sans text-[#111]">
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-gray-100/50 to-transparent pointer-events-none" />
 
-      <div className="max-w-6xl mx-auto px-12 py-16 relative z-10 pb-32">
+      <div className="max-w-4xl mx-auto px-6 py-16 relative z-10 pb-32">
         <div className="mb-12 flex justify-between items-start">
           <div>
             <h1 className="text-4xl font-bold tracking-tight text-[#111] mb-2">Settings</h1>
@@ -293,9 +219,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Left Column */}
-          <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
             <SettingsSection
               title="Lighting Configuration"
               subtitle="Adjust settings for your current design session"
@@ -590,111 +514,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Right Column: Billing (PayPal + credits) */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] p-8 h-full flex flex-col transition-all duration-500 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#F6B45A]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-
-              <div className="flex items-center justify-between mb-6 relative z-10">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#111] flex items-center justify-center text-[#F6B45A] shadow-lg shadow-black/10">
-                    <CreditCard size={20} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-[#111]">Billing</h2>
-                    <p className="text-xs text-gray-400 font-medium tracking-wide">Monthly subscription & credits</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={refreshBilling}
-                  disabled={billingLoading}
-                  className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#111] hover:border-[#111] transition disabled:opacity-60"
-                  title="Refresh billing status"
-                >
-                  <RefreshCw size={14} className={billingLoading ? "animate-spin" : ""} />
-                </button>
-              </div>
-
-              <div className="flex-1 relative z-10">
-                {billingError && (
-                  <div className="p-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm">
-                    {billingError}
-                  </div>
-                )}
-
-                {!billing && !billingError && (
-                  <div className="text-sm text-gray-500">Loading billing status…</div>
-                )}
-
-                {billing && (
-                  <div className="space-y-6">
-                    <div
-                      className={`rounded-2xl p-6 border shadow-sm ${
-                        isPro ? "bg-[#111] border-gray-800 text-white" : "bg-gray-50 border-gray-200 text-[#111]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className={`text-[10px] font-bold uppercase tracking-widest ${isPro ? "text-[#F6B45A]" : "text-gray-500"}`}>
-                            Status
-                          </div>
-                          <div className="text-2xl font-bold mt-1">{isPro ? "Active" : "Not Active"}</div>
-                          <div className={`text-xs mt-1 ${isPro ? "text-gray-300" : "text-gray-500"}`}>
-                            {billing.status}
-                            {billing.planKey ? ` • ${billing.planKey}` : ""}
-                          </div>
-                        </div>
-                        <div className={`p-3 rounded-full ${isPro ? "bg-[#F6B45A] text-[#111]" : "bg-white border border-gray-200"}`}>
-                          <Crown size={20} />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6">
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Credits</div>
-                      <div className="mt-2 flex items-baseline gap-2">
-                        <div className="text-3xl font-bold text-[#111]">{billing.creditsRemaining}</div>
-                        <div className="text-sm text-gray-500">/ {billing.creditsTotal}</div>
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">Resets monthly (UTC {billing.ym || "—"})</div>
-
-                      <div className="mt-4 h-2 rounded-full bg-gray-100 overflow-hidden">
-                        <div
-                          className="h-full bg-[#F6B45A]"
-                          style={{
-                            width:
-                              billing.creditsTotal > 0
-                                ? `${Math.max(0, Math.min(100, (billing.creditsUsed / billing.creditsTotal) * 100))}%`
-                                : "0%",
-                          }}
-                        />
-                      </div>
-                      <div className="mt-2 text-xs text-gray-400">
-                        Used {billing.creditsUsed} this month
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-50 relative z-10">
-                <button
-                  onClick={onUpgrade}
-                  className="w-full bg-[#111] text-white py-4 rounded-xl font-bold text-xs uppercase tracking-[0.15em] hover:bg-black group relative overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#F6B45A]/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                  <span className="relative z-10 flex items-center justify-center gap-2">
-                    {isPro ? "Change / Upgrade Plan" : "Upgrade to Pro"} <Crown size={14} className="text-[#F6B45A]" />
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-          {/* end right col */}
         </div>
-      </div>
     </div>
   );
 };

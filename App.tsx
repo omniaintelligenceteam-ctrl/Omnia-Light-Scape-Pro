@@ -202,7 +202,7 @@ USER NOTES: "${rawPrompt}"
             ]
           }],
           generationConfig: {
-            temperature: 0.5, // Low temp to enforce the Block List strictly
+            temperature: 0.3, // Low temp to enforce the Block List strictly
             topP: 0.90,
             maxOutputTokens: 2048,
           }

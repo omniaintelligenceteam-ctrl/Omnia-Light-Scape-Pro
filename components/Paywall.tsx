@@ -16,13 +16,6 @@ interface PaywallProps {
 // 2. YOUR PRICING TIERS (Restored)
 const PRICING_TIERS = [
   {
-    id: 'tier_10',
-    generations: 10,
-    price: 20,
-    link: 'https://buy.stripe.com/6oU3cxdeA2Nmf7Bgaw4wM07',
-    popular: false
-  },
-  {
     id: 'tier_50',
     generations: 50,
     price: 80,
@@ -36,34 +29,6 @@ const PRICING_TIERS = [
     link: 'https://buy.stripe.com/fZufZjeiEfA8f7Be2o4wM05',
     popular: false
   },
-  {
-    id: 'tier_250',
-    generations: 250,
-    price: 275,
-    link: 'https://buy.stripe.com/5kQ3cxb6s9bKe3xgaw4wM04',
-    popular: false
-  },
-  {
-    id: 'tier_500',
-    generations: 500,
-    price: 499,
-    link: 'https://buy.stripe.com/00w28t6Qc2Nm2kP1fC4wM03',
-    popular: false
-  },
-  {
-    id: 'tier_1000',
-    generations: 1000,
-    price: 899,
-    link: 'https://buy.stripe.com/5kQeVfdeA87G2kP3nK4wM02',
-    popular: false
-  },
-  {
-    id: 'tier_2500',
-    generations: 2500,
-    price: 1999,
-    link: 'https://buy.stripe.com/dRmdRb7UggEc5x1cYk4wM01',
-    popular: false
-  }
 ];
 
 export const Paywall: React.FC<PaywallProps> = ({ 
