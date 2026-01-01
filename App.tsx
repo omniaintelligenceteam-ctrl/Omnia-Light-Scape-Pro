@@ -136,7 +136,7 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
 async function serverGenerateImage(payload: any): Promise<{ imageDataUrl: string; billing?: any }> {
   
   // !!! PASTE YOUR API KEY HERE !!!
-  const API_KEY = "AIzaSyDqMYOdWHAH2shUysqNluJlOy6GNZjFteA"; 
+  const API_KEY = "AIzaSyA8CWFBQtg4uKGJzWNml08WRCQNSxiC4es"; 
   const MODEL_NAME = "gemini-3-pro-image-preview"; 
 
   // 1. ANALYZE THE PROMPT
