@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Auth } from "./components/Auth";
 import { ProjectGallery } from "./components/ProjectGallery";
@@ -19,8 +19,24 @@ import type {
   QuoteItem,
   FixturePricing,
 } from "./types";
+import {
+  Upload,
+  Download,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
+  ArrowLeft,
+  X,
+  Sparkles,
+  ThumbsUp,
+  ThumbsDown,
+  Save,
+  ChevronDown,
+  ChevronUp,
+  Quote as QuoteIcon,
+} from "lucide-react";
 
-
+// --- TYPES ---
 type BillingStatus = {
   active: boolean;
   status: string;
@@ -31,6 +47,7 @@ type BillingStatus = {
   creditsRemaining: number;
 };
 
+// --- HELPER FUNCTIONS ---
 const DEV_BYPASS_KEY = "dev_bypass";
 
 function getDeviceId() {
@@ -114,131 +131,84 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
     creditsRemaining: Number(data.creditsRemaining || 0),
   };
 }
+
 /**
- * GEMINI 3 PRO - STRICT "ALLOW/BLOCK" LOGIC
- * This ensures the AI obeys the specific buttons you clicked.
+ * STABILITY AI (STRUCTURE PRESERVATION)
+ * This uses the 'Search and Replace' or 'Structure' capability to keep the house 
+ * identical while changing the environment to night.
  */
 async function serverGenerateImage(payload: any): Promise<{ imageDataUrl: string; billing?: any }> {
   
-  // !!! PASTE YOUR API KEY HERE !!!
-  const API_KEY = "AIzaSyBjHM8f8zNLb8XHMFT1RrlhL2uDyPGCRi4"; 
-  const MODEL_NAME = "gemini-3-pro-image-preview"; 
+  // !!! PASTE YOUR STABILITY API KEY HERE !!!
+  const API_KEY = "sk-PASTE_YOUR_STABILITY_KEY_HERE"; 
 
-  // 1. ANALYZE THE PROMPT
-  // This text includes the Quick Prompt (e.g., "Up Lights Only") AND the Architect Notes.
+  // 1. Prepare Prompt
   const rawPrompt = payload.contents[0].parts[0].text;
-  const lowerPrompt = rawPrompt.toLowerCase();
+  const prompt = `Night time architectural photography, dark blue sky, professional landscape lighting. ${rawPrompt}`;
+
+  // 2. Prepare Image (Convert Base64 to Blob)
   const inputImageBase64 = payload.contents[0].parts[1].inlineData.data;
+  const byteCharacters = atob(inputImageBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'image/png' });
 
-  // 2. DETERMINE "ALLOW LIST" BASED ON YOUR BUTTONS
-  // We check if the keywords exist in the prompt.
-  const allowUp = lowerPrompt.includes("up light") || lowerPrompt.includes("uplight") || lowerPrompt.includes("spotlight") || lowerPrompt.includes("accent");
-  const allowPath = lowerPrompt.includes("path") || lowerPrompt.includes("walkway") || lowerPrompt.includes("bollard");
-  const allowGutter = lowerPrompt.includes("gutter") || lowerPrompt.includes("roof") || lowerPrompt.includes("soffit") || lowerPrompt.includes("down");
-  const allowHoliday = lowerPrompt.includes("christmas") || lowerPrompt.includes("halloween") || lowerPrompt.includes("holiday");
-
-  // 3. BUILD THE "FORBIDDEN LIST" (Block everything else)
-  const forbiddenList = [];
-
-  if (!allowUp) forbiddenList.push("Uplights", "Wall Washers", "Spotlights on walls/trees");
-  if (!allowPath) forbiddenList.push("Path lights", "Walkway lights", "Ground stakes", "Bollards");
-  if (!allowGutter) forbiddenList.push("Gutter lights", "Soffit lights", "Downlights from roof");
-  if (!allowHoliday) forbiddenList.push("Christmas lights", "String lights", "Colored lights", "Holiday decorations");
+  // 3. Build Form Data for Stability
+  const formData = new FormData();
+  formData.append("image", blob);
+  formData.append("prompt", prompt);
+  formData.append("search_prompt", "daylight, sun, blue sky"); // Tells AI what to remove
+  formData.append("output_format", "webp");
   
-  // Always forbid these unless explicitly asked for in Architect Notes
-  forbiddenList.push("Floodlights", "Security lights", "Interior windows glowing", "Street lamps");
-
-  // 4. CONSTRUCT THE STRICT SYSTEM INSTRUCTION
-  const strictSystemPrompt = `
-ROLE: Precision Landscape Lighting Designer.
-TASK: Apply exterior lighting to the provided image based strictly on the configuration below.
-
-CONFIGURATION:
-- ALLOWED FIXTURES: ${allowUp ? '[Uplights]' : ''} ${allowPath ? '[Path Lights]' : ''} ${allowGutter ? '[Gutter Mounted Up Lights]' : ''} ${allowHoliday ? '[Holiday Decor]' : ''}
-- FORBIDDEN FIXTURES: ${forbiddenList.join(", ")}.
-
-INSTRUCTIONS:
-1. NIGHT MODE: Convert the scene to night (dark blue sky).
-2. EXECUTION: Render ONLY the "ALLOWED FIXTURES".
-3. BLOCKING: Do NOT render any fixture in the "FORBIDDEN FIXTURES" list. 
-   - Example: If Path Lights are forbidden, the walkway MUST remain dark.
-   - Example: If Uplights are forbidden, the walls and trees MUST remain dark.
-4. GEOMETRY: Do not add or remove trees, bushes, or structures. Keep the house exactly as is.
-
-USER NOTES: "${rawPrompt}"
-`;
+  // "search-and-replace" is great for swapping day for night while keeping structure
+  const url = "https://api.stability.ai/v2beta/stable-image/edit/search-and-replace";
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: strictSystemPrompt },
-              {
-                inlineData: {
-                  mimeType: "image/png",
-                  data: inputImageBase64
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.3, // Low temp to enforce the Block List strictly
-            topP: 0.90,
-            maxOutputTokens: 2048,
-          }
-        })
-      }
-    );
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        Accept: "image/*",
+      },
+      body: formData,
+    });
 
     if (!response.ok) {
-       // Graceful fallback for 404 (if your key doesn't have Gemini 3 yet)
-       if (response.status === 404) {
-         console.warn("Gemini 3 not found, falling back to 1.5 Pro");
-         // You could add a recursive call here to try MODEL_NAME = 'gemini-1.5-pro'
-         // But for now, we just alert.
-         alert("Your API Key doesn't support Gemini 3 Image Editing yet. Try 'gemini-1.5-pro-latest'.");
-       }
-       throw new Error(`API Error: ${response.statusText}`);
+      const errText = await response.text();
+      let errMsg = response.statusText;
+      try {
+        const jsonErr = JSON.parse(errText);
+        if (jsonErr.errors) errMsg = jsonErr.errors[0];
+        if (jsonErr.name) errMsg = jsonErr.name;
+      } catch {}
+      throw new Error(`Stability Error: ${errMsg}`);
     }
 
-    const data = await response.json();
+    const imageBlob = await response.blob();
     
-    // Check for Image
-    const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-    if (imagePart) {
-      return { 
-        imageDataUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`, 
-        billing: { creditsRemaining: 50, active: true } 
-      };
-    } 
-
-    // Check for Text Refusal
-    const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
-    if (textPart) {
-        console.warn("Refusal:", textPart.text);
-        alert("AI Refusal: The model felt it couldn't follow the strict blocking rules. Try loosening the prompt.");
-        return { 
-            imageDataUrl: `data:image/png;base64,${inputImageBase64}`, 
-            billing: { creditsRemaining: 50, active: true } 
+    // Convert Blob to Base64 for the app
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            resolve({ 
+                imageDataUrl: reader.result as string, 
+                billing: { creditsRemaining: 50, active: true } 
+            });
         };
-    }
-
-    throw new Error("No data returned");
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
+    });
 
   } catch (e: any) {
-    console.error(e);
-    return { 
-        imageDataUrl: `data:image/png;base64,${inputImageBase64}`,
-        billing: { creditsRemaining: 50, active: true } 
-    };
+    console.error("Stability Error:", e);
+    throw e;
   }
 }
 
+// --- MAIN APP COMPONENT ---
 const App: React.FC = () => {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -718,12 +688,6 @@ const App: React.FC = () => {
 
     const allowedTypes = hasMarkers ? presentTypes : (["up", "path", "gutter"] as const);
 
-    let timeOfDay = "Pitch Black Night (0% ambient)";
-    if (settings.ambientLight >= 80) timeOfDay = "Full Daylight (100% ambient)";
-    else if (settings.ambientLight >= 60) timeOfDay = "Overcast Day / Early Evening";
-    else if (settings.ambientLight >= 30) timeOfDay = "Blue Hour / Dusk";
-    else if (settings.ambientLight >= 10) timeOfDay = "Deep Night with Moon";
-
     const intensityMap =
       settings.intensity > 80
         ? "High Intensity: Bright, dramatic illumination."
@@ -731,15 +695,8 @@ const App: React.FC = () => {
           ? "Low Intensity: Subtle, mood-focused."
           : "Medium Intensity: Balanced.";
 
-    const techSpecs: string[] = [];
-    if (settings.darkSkyMode) techSpecs.push("Dark Sky Compliant: minimize glare and skyglow.");
-    if (settings.preserveNonLit) techSpecs.push("High Contrast: unlit areas remain black unless ambient requires otherwise.");
-    if (settings.highRealism) techSpecs.push("Photorealism: physically plausible falloff and shadows.");
-
     const allowedTypesBlock = `
 ALLOWED FIXTURE TYPES: ${allowedTypes.map((t) => `"${t}"`).join(", ")} ONLY.
-FORBIDDEN: soffit lights, floodlights, wall packs, security lights, string lights (unless explicitly requested).
-If any forbidden fixture appears, the result is WRONG.
 `.trim();
 
     const userInstructionsBlock =
@@ -747,94 +704,23 @@ If any forbidden fixture appears, the result is WRONG.
         ? `USER INSTRUCTIONS (top priority):\n${combinedInstructions.trim()}`
         : "";
 
-    const feedbackBlock =
-      critiques.length
-        ? `FIXES REQUIRED (top priority):\n${critiques.map((c) => `- ${c}`).join("\n")}`
-        : "";
-
     let placementInstruction = "";
     if (hasMarkers) {
-      const list = markers
-        .map((m, i) => {
-          const xVal = clamp(m.x, 0, 100).toFixed(2);
-          const yVal = clamp(m.y, 0, 100).toFixed(2);
-
-          if (m.type === "gutter") {
-            return `${i + 1}) gutter marker at (x:${xVal}%, y:${yVal}%)
-- Render a gutter-mounted uplight fixture attached to fascia/gutter edge.
-- Beam direction upward.
-- IMPORTANT: do NOT replace this with a path light.`;
-          }
-          if (m.type === "path") {
-            return `${i + 1}) path marker at (x:${xVal}%, y:${yVal}%)
-- Render a path light fixture (small post/bollard).
-- Soft pool of light on the ground.
-- IMPORTANT: do NOT replace this with an uplight.`;
-          }
-          return `${i + 1}) up marker at (x:${xVal}%, y:${yVal}%)
-- Render a ground-mounted uplight fixture.
-- Must be in soil/mulch/grass near base of wall/tree.
-- IMPORTANT: do NOT replace this with a path light.`;
-        })
-        .join("\n");
-
-      placementInstruction = `
-MODE: STRICT MARKER RENDER (no auto-design).
-You must render EXACTLY ${markers.length} fixtures, one per marker, using ONLY the allowed types.
-Do NOT add extra fixtures.
-Do NOT change fixture types: marker type must match rendered fixture type.
-
-FIXTURES TO RENDER:
-${list}
-
-CLEANUP:
-- Remove any guide dots/numbers/lines from the final image.
-- Keep architecture identical (no structural changes).
-`.trim();
-    } else {
-      placementInstruction = `
-MODE: AUTO DESIGN.
-Create a balanced professional exterior lighting design using only allowed fixture types.
-- "up": base of key architecture / trees (ground only)
-- "path": along visible walkways/driveways
-- "gutter": first-level roofline only
-Do not add fixtures where you cannot clearly see a surface.
-`.trim();
+        const list = markers.map(m => `${m.type} light at ${m.x.toFixed(0)}%,${m.y.toFixed(0)}%`).join(", ");
+        placementInstruction = `Render fixtures strictly at these locations: ${list}`;
     }
 
     const prompt = `
+TRANSFORM TO NIGHT:
 Transform the provided daytime house photo into a professional nighttime lighting mockup.
-
 ${allowedTypesBlock}
-
-GLOBAL ENVIRONMENT:
-- Time of Day: ${timeOfDay}
-
-DESIGN SETTINGS:
-- Color temperature: ${colorTemp.kelvin} (${colorTemp.description})
-- Fixture intensity: ${intensityMap}
-- Shadow contrast: ${settings.shadowContrast}%
-
+Color temperature: ${colorTemp.kelvin} (${colorTemp.description})
+Fixture intensity: ${intensityMap}
 ${placementInstruction}
-
 ${userInstructionsBlock}
+    `.trim();
 
-${feedbackBlock}
-
-TECHNICAL CONSTRAINTS:
-- ${techSpecs.length ? techSpecs.join("\n- ") : "Maintain realistic exposure, falloff, and shadows."}
-- Preserve exact house structure/materials.
-- Do not hallucinate trees/walkways/driveways not visible.
-- Only artificial light should come from the rendered fixtures.
-- Ensure a realistic night exposure.
-
-FINAL CHECKLIST (must pass):
-- Only allowed fixture types appear.
-- If markers were provided: fixture count equals ${markers.length} exactly, no extras.
-- No guide dots/lines remain in output.
-`.trim();
-
-          return {
+    return {
       contents: [
         {
           parts: [
@@ -842,15 +728,8 @@ FINAL CHECKLIST (must pass):
             { inlineData: { mimeType: mimeType || "image/png", data: base64 } }
           ]
         }
-      ],
-      generationConfig: {
-        responseModalities: ["image", "text"],
-        responseMimeType: "image/png",
-        // Nano Banana Pro supports parameters for aspect ratio/quality if needed,
-        // but keeping it simple ensures it works first.
-      }
+      ]
     };
-
   }
 
   // --- GENERATION ---
@@ -923,7 +802,7 @@ FINAL CHECKLIST (must pass):
         activeView={view}
         onNavigate={handleNavigate}
         user={user}
-        subscription={undefined as any}
+        subscription={billing || null} // FIXED: Passed billing object directly to prevent white screen crash
         onOpenPricing={() => setShowPaywall(true)}
         onSave={handleSaveProject}
       />
@@ -984,8 +863,8 @@ FINAL CHECKLIST (must pass):
             <SettingsPage
               user={user}
               userSettings={userSettings}
-              subscription={undefined as any}
-              trialState={undefined as any}
+              subscription={billing || null} // FIXED: Passed billing object directly
+              trialState={null} // FIXED: Passed null instead of undefined as any
               onSaveSettings={handleSaveUserSettings}
               onUpgrade={() => setShowPaywall(true)}
               onLogout={handleLogout}
