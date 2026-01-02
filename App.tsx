@@ -133,77 +133,98 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
 }
 
 /**
- * STABILITY AI (STRUCTURE PRESERVATION)
- * This uses the 'Search and Replace' or 'Structure' capability to keep the house 
- * identical while changing the environment to night.
+ * GOOGLE GEMINI 2.0 FLASH EXPERIMENTAL (Nano Banana Pro 2 Logic)
+ * This model supports native image generation.
  */
 async function serverGenerateImage(payload: any): Promise<{ imageDataUrl: string; billing?: any }> {
   
-  // !!! PASTE YOUR STABILITY API KEY HERE !!!
-  const API_KEY = "sk-PASTE_YOUR_STABILITY_KEY_HERE"; 
-
-  // 1. Prepare Prompt
-  const rawPrompt = payload.contents[0].parts[0].text;
-  const prompt = `Night time architectural photography, dark blue sky, professional landscape lighting. ${rawPrompt}`;
-
-  // 2. Prepare Image (Convert Base64 to Blob)
-  const inputImageBase64 = payload.contents[0].parts[1].inlineData.data;
-  const byteCharacters = atob(inputImageBase64);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: 'image/png' });
-
-  // 3. Build Form Data for Stability
-  const formData = new FormData();
-  formData.append("image", blob);
-  formData.append("prompt", prompt);
-  formData.append("search_prompt", "daylight, sun, blue sky"); // Tells AI what to remove
-  formData.append("output_format", "webp");
+  // !!! PASTE YOUR NEW GOOGLE API KEY HERE !!!
+  const API_KEY = "YOUR_NEW_GOOGLE_API_KEY_HERE"; 
   
-  // "search-and-replace" is great for swapping day for night while keeping structure
-  const url = "https://api.stability.ai/v2beta/stable-image/edit/search-and-replace";
+  // "Nano Banana Pro 2" corresponds to Gemini 2.0 Flash Experimental in the API
+  const MODEL_NAME = "gemini-2.0-flash-exp"; 
+
+  // 1. Extract inputs
+  const rawPrompt = payload.contents[0].parts[0].text;
+  const inputImageBase64 = payload.contents[0].parts[1].inlineData.data;
+
+  // 2. Strict Instruction for Architectural Lighting
+  const finalPrompt = `
+    ROLE: Professional Architectural Lighting Designer.
+    TASK: Edit the input image to simulate a realistic nighttime lighting design.
+    
+    INSTRUCTIONS:
+    1. Change the environment to NIGHT time (dark sky).
+    2. Keep the house architecture EXACTLY the same.
+    3. Apply lighting based on these notes: "${rawPrompt}"
+    
+    OUTPUT: A single high-quality image file.
+  `.trim();
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        Accept: "image/*",
-      },
-      body: formData,
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: finalPrompt },
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: inputImageBase64
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            responseModalities: ["image"], // Forces Image Output
+            temperature: 0.4,
+            maxOutputTokens: 2048, 
+          }
+        })
+      }
+    );
 
     if (!response.ok) {
-      const errText = await response.text();
-      let errMsg = response.statusText;
-      try {
-        const jsonErr = JSON.parse(errText);
-        if (jsonErr.errors) errMsg = jsonErr.errors[0];
-        if (jsonErr.name) errMsg = jsonErr.name;
-      } catch {}
-      throw new Error(`Stability Error: ${errMsg}`);
+       const errData = await response.json().catch(() => ({}));
+       console.error("Gemini API Error:", errData);
+       
+       // Handle specific errors for the user
+       if (response.status === 404) throw new Error("Model not found. Google may have rotated the 'exp' model name.");
+       if (response.status === 403) throw new Error("403 Forbidden. Your API Key is not valid for this model or needs Billing enabled.");
+       if (response.status === 400 && JSON.stringify(errData).includes("modalities")) {
+           throw new Error("This Google model does not support image generation in your region yet.");
+       }
+       
+       throw new Error(`Google API Error (${response.status}): ${errData.error?.message || response.statusText}`);
     }
 
-    const imageBlob = await response.blob();
+    const data = await response.json();
     
-    // Convert Blob to Base64 for the app
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            resolve({ 
-                imageDataUrl: reader.result as string, 
-                billing: { creditsRemaining: 50, active: true } 
-            });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(imageBlob);
-    });
+    // Check for Image Output
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+    
+    if (imagePart) {
+      return { 
+        imageDataUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`, 
+        billing: { creditsRemaining: 50, active: true } 
+      };
+    } 
+
+    // Check for refusal
+    const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
+    if (textPart) {
+        console.warn("Model refusal:", textPart.text);
+        throw new Error(`AI Refusal: ${textPart.text.substring(0, 100)}...`);
+    }
+
+    throw new Error("No image data returned from Google.");
 
   } catch (e: any) {
-    console.error("Stability Error:", e);
+    console.error(e);
     throw e;
   }
 }
@@ -681,6 +702,8 @@ const App: React.FC = () => {
   ) {
     const { mimeType, base64 } = parseDataUrl(imageDataUrl);
 
+    // We keep your logic for prompts, even if not fully used by the strict prompt below
+    // to preserve your existing code structure.
     const hasMarkers = markers.length > 0;
     const presentTypes = uniq(markers.map((m) => m.type)).filter(
       (t) => t === "up" || t === "path" || t === "gutter"
@@ -697,6 +720,8 @@ const App: React.FC = () => {
 
     const allowedTypesBlock = `
 ALLOWED FIXTURE TYPES: ${allowedTypes.map((t) => `"${t}"`).join(", ")} ONLY.
+FORBIDDEN: soffit lights, floodlights, wall packs, security lights, string lights (unless explicitly requested).
+If any forbidden fixture appears, the result is WRONG.
 `.trim();
 
     const userInstructionsBlock =
@@ -704,20 +729,29 @@ ALLOWED FIXTURE TYPES: ${allowedTypes.map((t) => `"${t}"`).join(", ")} ONLY.
         ? `USER INSTRUCTIONS (top priority):\n${combinedInstructions.trim()}`
         : "";
 
-    let placementInstruction = "";
-    if (hasMarkers) {
-        const list = markers.map(m => `${m.type} light at ${m.x.toFixed(0)}%,${m.y.toFixed(0)}%`).join(", ");
-        placementInstruction = `Render fixtures strictly at these locations: ${list}`;
-    }
+    const feedbackBlock =
+      critiques.length
+        ? `FIXES REQUIRED (top priority):\n${critiques.map((c) => `- ${c}`).join("\n")}`
+        : "";
 
+    // IMPORTANT: Gemini 2.0 Flash handles prompts slightly differently.
+    // We construct a text prompt that includes the "Day to Night" instruction.
     const prompt = `
-TRANSFORM TO NIGHT:
-Transform the provided daytime house photo into a professional nighttime lighting mockup.
-${allowedTypesBlock}
-Color temperature: ${colorTemp.kelvin} (${colorTemp.description})
-Fixture intensity: ${intensityMap}
-${placementInstruction}
-${userInstructionsBlock}
+      TASK: Transform this daytime house photo into a REALISTIC NIGHTTIME lighting mockup.
+      
+      ENVIRONMENT:
+      - Sky must be dark blue/black.
+      - Remove sunlight and daylight shadows.
+      
+      DESIGN:
+      - Color temperature: ${colorTemp.kelvin}
+      - Intensity: ${intensityMap}
+      
+      ${allowedTypesBlock}
+      ${userInstructionsBlock}
+      ${feedbackBlock}
+      
+      OUTPUT: A single high-quality image.
     `.trim();
 
     return {
@@ -802,7 +836,7 @@ ${userInstructionsBlock}
         activeView={view}
         onNavigate={handleNavigate}
         user={user}
-        subscription={billing || null} // FIXED: Passed billing object directly to prevent white screen crash
+        subscription={billing || undefined} // FIXED: Prevents white screen if billing is null
         onOpenPricing={() => setShowPaywall(true)}
         onSave={handleSaveProject}
       />
@@ -863,8 +897,8 @@ ${userInstructionsBlock}
             <SettingsPage
               user={user}
               userSettings={userSettings}
-              subscription={billing || null} // FIXED: Passed billing object directly
-              trialState={null} // FIXED: Passed null instead of undefined as any
+              subscription={billing || undefined}
+              trialState={undefined as any}
               onSaveSettings={handleSaveUserSettings}
               onUpgrade={() => setShowPaywall(true)}
               onLogout={handleLogout}
