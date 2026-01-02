@@ -19,22 +19,7 @@ import type {
   QuoteItem,
   FixturePricing,
 } from "./types";
-import {
-  Upload,
-  Download,
-  Loader2,
-  RefreshCw,
-  AlertCircle,
-  ArrowLeft,
-  X,
-  Sparkles,
-  ThumbsUp,
-  ThumbsDown,
-  Save,
-  ChevronDown,
-  ChevronUp,
-  Quote as QuoteIcon,
-} from "lucide-react";
+
 
 type BillingStatus = {
   active: boolean;
@@ -136,7 +121,7 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
 async function serverGenerateImage(payload: any): Promise<{ imageDataUrl: string; billing?: any }> {
   
   // !!! PASTE YOUR API KEY HERE !!!
-  const API_KEY = "AIzaSyA8CWFBQtg4uKGJzWNml08WRCQNSxiC4es"; 
+  const API_KEY = "AIzaSyAuvsIl2RycwjpobaR5QVhUGPR6y6K2sTo"; 
   const MODEL_NAME = "gemini-3-pro-image-preview"; 
 
   // 1. ANALYZE THE PROMPT
